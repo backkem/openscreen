@@ -6,14 +6,13 @@
 
 #include <utility>
 
+#include "osp/impl/quic/certificates/agent_fingerprint_proof_verifier.h"
 #include "osp/impl/quic/open_screen_client_session.h"
 #include "osp/impl/quic/quic_client.h"
 #include "osp/impl/quic/quic_connection_impl.h"
 #include "platform/impl/quic/quic_packet_writer_impl.h"
 #include "platform/impl/quic/quic_utils.h"
-#include "quiche/quic/core/crypto/web_transport_fingerprint_proof_verifier.h"
 #include "quiche/quic/core/quic_utils.h"
-#include "util/base64.h"
 #include "util/osp_logging.h"
 #include "util/std_util.h"
 #include "util/trace_logging.h"
@@ -78,25 +77,16 @@ ErrorOr<std::unique_ptr<QuicConnection>> QuicConnectionFactoryClient::Connect(
   std::string host_name = connect_data.instance_name + ".local";
 
   if (!crypto_client_config_) {
-    auto proof_verifier =
-        std::make_unique<quic::WebTransportFingerprintProofVerifier>(
-            helper_->GetClock(), /*max_validity_days=*/3650);
-    std::vector<uint8_t> decoded_fingerprint;
-    base64::Decode(connect_data.fingerprint, &decoded_fingerprint);
-    std::string fingerprint{decoded_fingerprint.begin(),
-                            decoded_fingerprint.end()};
-    const bool success = proof_verifier->AddFingerprint(quic::WebTransportHash{
-        quic::WebTransportHash::kSha256, std::move(fingerprint)});
-    if (!success) {
-      return Error::Code::kSha256HashFailure;
-    }
-
+    auto proof_verifier = std::make_unique<AgentFingerprintProofVerifier>();
+    proof_verifier_ = proof_verifier.get();
     crypto_client_config_ = std::make_unique<quic::QuicCryptoClientConfig>(
         std::move(proof_verifier), nullptr);
     crypto_client_config_->set_proof_source(
         QuicServiceBase::GetAgentCertificate().CreateClientProofSource(
             host_name));
   }
+  // Pin the agent fingerprint advertised by this agent (network.bs "TLS 1.3").
+  proof_verifier_->SetFingerprint(host_name, connect_data.fingerprint);
 
   auto connection_impl = std::make_unique<QuicConnectionImpl>(
       connect_data.instance_name, *connection_delegate, *helper_->GetClock());

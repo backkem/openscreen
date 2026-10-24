@@ -8,8 +8,6 @@
 #include <random>
 #include <utility>
 
-#include "quiche/quic/core/quic_utils.h"
-#include "util/base64.h"
 #include "util/osp_logging.h"
 
 namespace openscreen::osp {
@@ -72,8 +70,8 @@ std::string QuicServer::GetAgentFingerprint() {
 void QuicServer::OnClientCertificates(
     std::string_view instance_name,
     const std::vector<std::string_view>& certs) {
-  fingerprint_map_.emplace(instance_name,
-                           base64::Encode(quic::RawSha256(certs[0])));
+  fingerprint_map_.emplace(
+      instance_name, QuicAgentCertificate::ComputeAgentFingerprint(certs[0]));
 }
 
 void QuicServer::OnIncomingConnection(

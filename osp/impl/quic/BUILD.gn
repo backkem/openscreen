@@ -29,6 +29,8 @@ if (!is_win) {
       "quic_stream.h",
     ]
     sources = [
+      "certificates/agent_fingerprint_proof_verifier.cc",
+      "certificates/agent_fingerprint_proof_verifier.h",
       "certificates/quic_agent_certificate.cc",
       "certificates/quic_agent_certificate.h",
       "open_screen_client_session.cc",

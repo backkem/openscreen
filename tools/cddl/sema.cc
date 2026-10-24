@@ -621,24 +621,42 @@ bool AddMembersToStruct(
           return false;
         }
       } else {
+        const bool is_optional =
+            x->opt_occurrence_min ==
+                CddlGroup::Entry::kOccurrenceMinUnbounded &&
+            x->opt_occurrence_max == 1;
+        // `? key: type / null` is supported for optional members only: null is
+        // then treated like an absent member.
+        const CddlType* value_type = x->type.value;
+        bool nullable = false;
+        if (is_optional &&
+            value_type->which == CddlType::Which::kDirectChoice &&
+            value_type->direct_choice.size() == 2) {
+          for (size_t i = 0; i < 2; ++i) {
+            const CddlType* choice = value_type->direct_choice[i];
+            if (choice->which == CddlType::Which::kId && choice->id == "null") {
+              value_type = value_type->direct_choice[1 - i];
+              nullable = true;
+              break;
+            }
+          }
+        }
         // Here it is a real type definition - so process it as such.
-        CppType* member_type =
-            MakeCppType(table, cddl_table,
-                        cpp_type->name + std::string("_") + x->type.opt_key,
-                        *x->type.value);
+        CppType* member_type = MakeCppType(
+            table, cddl_table,
+            cpp_type->name + std::string("_") + x->type.opt_key, *value_type);
         if (!member_type)
           return false;
         if (member_type->name.empty())
           member_type->name = x->type.opt_key;
-        if (x->opt_occurrence_min ==
-                CddlGroup::Entry::kOccurrenceMinUnbounded &&
-            x->opt_occurrence_max == 1) {
+        if (is_optional) {
           // Create an "optional" type, with sub-type being the type that is
           // optional. This corresponds with occurrence operator '?'.
           table->cpp_types.emplace_back(new CppType);
           CppType* optional_type = table->cpp_types.back().get();
           optional_type->which = CppType::Which::kOptional;
           optional_type->optional_type = member_type;
+          optional_type->optional_nullable = nullable;
           cpp_type->struct_type.members.emplace_back(
               x->type.opt_key, x->type.integer_key, optional_type);
         } else {

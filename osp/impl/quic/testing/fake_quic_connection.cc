@@ -77,6 +77,12 @@ QuicStream* FakeQuicConnection::MakeOutgoingStream(
   return stream_ptr;
 }
 
+QuicStream* FakeQuicConnection::MakeOutgoingBidirectionalStream(
+    QuicStream::Delegate& delegate) {
+  // Fake streams carry data both ways.
+  return MakeOutgoingStream(delegate);
+}
+
 void FakeQuicConnection::Close() {
   delegate().OnConnectionClosed(instance_name_);
   for (auto& stream : streams_) {

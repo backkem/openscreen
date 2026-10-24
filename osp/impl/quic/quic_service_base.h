@@ -113,7 +113,8 @@ class QuicServiceBase : public QuicConnection::Delegate,
   bool SuspendImpl();
   bool ResumeImpl();
   std::unique_ptr<ProtocolConnection> CreateProtocolConnectionImpl(
-      uint64_t instance_id);
+      uint64_t instance_id,
+      bool bidirectional);
 
   // Returns what the authenticator needs to know about the peer of a
   // connection whose QUIC handshake just completed.

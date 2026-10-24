@@ -41,7 +41,16 @@ QuicStream* QuicConnectionImpl::MakeOutgoingStream(
   TRACE_SCOPED(TraceCategory::kQuic, "QuicConnectionImpl::MakeOutgoingStream");
   OSP_CHECK(session_);
 
-  return session_->CreateOutgoingStream(delegate);
+  return session_->CreateOutgoingStream(delegate, /*bidirectional=*/false);
+}
+
+QuicStream* QuicConnectionImpl::MakeOutgoingBidirectionalStream(
+    QuicStream::Delegate& delegate) {
+  TRACE_SCOPED(TraceCategory::kQuic,
+               "QuicConnectionImpl::MakeOutgoingBidirectionalStream");
+  OSP_CHECK(session_);
+
+  return session_->CreateOutgoingStream(delegate, /*bidirectional=*/true);
 }
 
 void QuicConnectionImpl::Close() {

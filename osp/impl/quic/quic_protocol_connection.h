@@ -22,7 +22,8 @@ class QuicProtocolConnection final : public ProtocolConnection {
   static std::unique_ptr<QuicProtocolConnection> FromExisting(
       QuicConnection& connection,
       QuicStreamManager& manager,
-      uint64_t instance_id);
+      uint64_t instance_id,
+      bool bidirectional);
 
   QuicProtocolConnection(QuicStream* stream, uint64_t instance_id);
   QuicProtocolConnection(const QuicProtocolConnection&) = delete;

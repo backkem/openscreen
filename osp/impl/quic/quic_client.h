@@ -63,6 +63,8 @@ class QuicClient final : public ProtocolConnectionClient,
   }
   std::unique_ptr<ProtocolConnection> CreateProtocolConnection(
       uint64_t instance_id) override;
+  std::unique_ptr<ProtocolConnection> CreateBidirectionalProtocolConnection(
+      uint64_t instance_id) override;
   bool Connect(std::string_view instance_name,
                ConnectRequest& request,
                ConnectRequestCallback* request_callback) override;

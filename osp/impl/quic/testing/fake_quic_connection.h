@@ -68,6 +68,8 @@ class FakeQuicConnection final : public QuicConnection {
   // QuicConnection overrides.
   void OnPacketReceived(const UdpPacket& packet) override;
   QuicStream* MakeOutgoingStream(QuicStream::Delegate& delegate) override;
+  QuicStream* MakeOutgoingBidirectionalStream(
+      QuicStream::Delegate& delegate) override;
   void Close() override;
 
  private:

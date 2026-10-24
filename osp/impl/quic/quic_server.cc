@@ -60,7 +60,12 @@ bool QuicServer::Resume() {
 
 std::unique_ptr<ProtocolConnection> QuicServer::CreateProtocolConnection(
     uint64_t instance_id) {
-  return CreateProtocolConnectionImpl(instance_id);
+  return CreateProtocolConnectionImpl(instance_id, /*bidirectional=*/false);
+}
+
+std::unique_ptr<ProtocolConnection>
+QuicServer::CreateBidirectionalProtocolConnection(uint64_t instance_id) {
+  return CreateProtocolConnectionImpl(instance_id, /*bidirectional=*/true);
 }
 
 std::string QuicServer::GetAgentFingerprint() {

@@ -134,7 +134,7 @@ void QuicServiceBase::StartNetworkPhase(std::string instance_name,
 
 std::unique_ptr<ProtocolConnection>
 QuicServiceBase::CreateNetworkProtocolConnection(uint64_t instance_id) {
-  return CreateProtocolConnectionImpl(instance_id);
+  return CreateProtocolConnectionImpl(instance_id, /*bidirectional=*/false);
 }
 
 void QuicServiceBase::OnAuthenticationSucceeded(uint64_t instance_id) {
@@ -341,7 +341,8 @@ bool QuicServiceBase::ResumeImpl() {
 }
 
 std::unique_ptr<ProtocolConnection>
-QuicServiceBase::CreateProtocolConnectionImpl(uint64_t instance_id) {
+QuicServiceBase::CreateProtocolConnectionImpl(uint64_t instance_id,
+                                              bool bidirectional) {
   if (state_ != ProtocolConnectionEndpoint::State::kRunning) {
     return nullptr;
   }
@@ -353,7 +354,7 @@ QuicServiceBase::CreateProtocolConnectionImpl(uint64_t instance_id) {
 
   return QuicProtocolConnection::FromExisting(
       *connection_entry->second.connection,
-      *connection_entry->second.stream_manager, instance_id);
+      *connection_entry->second.stream_manager, instance_id, bidirectional);
 }
 
 void QuicServiceBase::CloseAllConnections() {

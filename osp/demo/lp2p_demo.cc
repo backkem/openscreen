@@ -48,6 +48,7 @@ struct DemoOptions {
   std::string connect_name;
   std::string label = "chat";
   std::string protocol;
+  int channels = 1;
   uint16_t port = 6668;
   AuthenticationConfig auth_config;
 };
@@ -178,7 +179,7 @@ class Lp2pDemo final : public ProtocolConnectionServiceObserver,
     Print("connected to instance " + std::to_string(connection->instance_id()) +
           " " + connection->instance_name());
     connection->SetDelegate(this);
-    if (!is_listener()) {
+    for (int i = 0; !is_listener() && i < options_.channels; ++i) {
       ErrorOr<std::unique_ptr<Lp2pDataChannel>> channel =
           connection->CreateDataChannel(
               {.label = options_.label, .protocol = options_.protocol}, this);
@@ -332,6 +333,9 @@ void LogUsage(const char* argv0) {
     --label=<label>, --protocol=<protocol>: The data channel to open
         (default label "chat").
 
+    --channels=<n>: With --connect, the number of data channels to open
+        (default 1).
+
     --port=<port>: The QUIC port to listen on (default 6668).
 
     --psk=<digits>: The PSK. The PSK presenter shows it (a random one is
@@ -356,6 +360,7 @@ bool ParseOptions(int argc, char** argv, DemoOptions& options) {
     kConnect,
     kLabel,
     kProtocol,
+    kChannels,
     kPort,
     kPsk,
     kPskEaseOfInput,
@@ -366,6 +371,7 @@ bool ParseOptions(int argc, char** argv, DemoOptions& options) {
       {"connect", required_argument, nullptr, kConnect},
       {"label", required_argument, nullptr, kLabel},
       {"protocol", required_argument, nullptr, kProtocol},
+      {"channels", required_argument, nullptr, kChannels},
       {"port", required_argument, nullptr, kPort},
       {"psk", required_argument, nullptr, kPsk},
       {"psk_ease_of_input", required_argument, nullptr, kPskEaseOfInput},
@@ -392,6 +398,14 @@ bool ParseOptions(int argc, char** argv, DemoOptions& options) {
       case kProtocol:
         options.protocol = std::string(value);
         break;
+      case kChannels: {
+        const auto result = std::from_chars(
+            value.data(), value.data() + value.size(), options.channels);
+        if (result.ec != std::errc() || options.channels < 1) {
+          return false;
+        }
+        break;
+      }
       case kPort: {
         const auto result = std::from_chars(
             value.data(), value.data() + value.size(), options.port);

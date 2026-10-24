@@ -20,7 +20,8 @@ Lp2pConnection::Lp2pConnection(Lp2pEndpoint& endpoint,
                                std::string instance_name)
     : endpoint_(&endpoint),
       instance_id_(instance_id),
-      instance_name_(std::move(instance_name)) {
+      instance_name_(std::move(instance_name)),
+      channel_id_parity_(endpoint.is_quic_client() ? 0 : 1) {
   endpoint_->AddConnection(*this);
 }
 
@@ -42,21 +43,28 @@ ErrorOr<std::unique_ptr<Lp2pDataChannel>> Lp2pConnection::CreateDataChannel(
     return Error(Error::Code::kNoActiveConnection);
   }
 
-  uint64_t id = 0;
+  std::set<uint64_t> used_ids;
+  for (const auto& entry : channels_) {
+    used_ids.insert(entry.second->id());
+  }
+  uint64_t id = channel_id_parity_;
   if (init.id) {
     if (*init.id > kMaxLp2pDataChannelId) {
       return Error(Error::Code::kParameterOutOfRange,
                    "channel-id must be at most 65534");
     }
+    if (*init.id % 2 != channel_id_parity_) {
+      return Error(Error::Code::kParameterInvalid,
+                   "channel-id has the peer's parity");
+    }
+    if (used_ids.count(*init.id)) {
+      return Error(Error::Code::kItemAlreadyExists, "channel-id is in use");
+    }
     id = *init.id;
   } else {
-    // The lowest ID that no channel of this connection uses.
-    std::set<uint64_t> used_ids;
-    for (const auto& entry : channels_) {
-      used_ids.insert(entry.second->id());
-    }
+    // The lowest ID of the local parity that no channel uses.
     while (used_ids.count(id)) {
-      ++id;
+      id += 2;
     }
     if (id > kMaxLp2pDataChannelId) {
       return Error(Error::Code::kParameterOutOfRange, "no free channel-id");

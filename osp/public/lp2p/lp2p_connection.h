@@ -61,6 +61,12 @@ class Lp2pConnection final {
   // Opens a data channel by sending a `data-channel-open-request` on a new
   // QUIC stream. The channel starts in `kConnecting`; `delegate` learns when
   // the peer accepts or rejects it.
+  //
+  // Without `init.id`, the channel gets the lowest ID of the local parity
+  // that no channel of this connection uses: even on the requester side (the
+  // QUIC client), odd on the receiver side (the QUIC server). An explicit
+  // `init.id` must be free and of the local parity. Channels the peer opens
+  // are accepted whatever their ID's parity.
   ErrorOr<std::unique_ptr<Lp2pDataChannel>> CreateDataChannel(
       const Lp2pDataChannelInit& init,
       Lp2pDataChannel::Delegate* delegate);
@@ -86,6 +92,9 @@ class Lp2pConnection final {
   raw_ptr<Lp2pEndpoint> endpoint_;
   const uint64_t instance_id_;
   const std::string instance_name_;
+  // 0 on the requester side, which allocates even channel IDs; 1 on the
+  // receiver side, which allocates odd ones.
+  const uint64_t channel_id_parity_;
   raw_ptr<Delegate> delegate_ = nullptr;
   // The open and opening channels, by QUIC stream ID.
   std::map<uint64_t, raw_ptr<Lp2pDataChannel>> channels_;

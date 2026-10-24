@@ -20,6 +20,7 @@ Lp2pReceiver::Lp2pReceiver(ProtocolConnectionServer& server,
     : delegate_(delegate),
       endpoint_(std::make_unique<Lp2pEndpoint>(server,
                                                task_runner,
+                                               /*is_quic_client=*/false,
                                                [this](uint64_t instance_id) {
                                                  return CreateConnection(
                                                      instance_id);

@@ -157,13 +157,13 @@ TEST_F(Lp2pConnectionTest, OpenChannelAndExchangeFrames) {
   EXPECT_CALL(receiver_delegate_, OnConnectionMock(_));
   EXPECT_CALL(request_channel_, OnOpen(_));
   std::unique_ptr<Lp2pDataChannel> channel =
-      OpenChannel({.label = "chat", .protocol = "text", .id = 7});
+      OpenChannel({.label = "chat", .protocol = "text", .id = 6});
   ASSERT_TRUE(channel);
   EXPECT_EQ(Lp2pDataChannel::State::kOpen, channel->state());
 
   ASSERT_EQ(1u, receiver_connection_delegate_.channels.size());
   Lp2pDataChannel& remote = *receiver_connection_delegate_.channels[0];
-  EXPECT_EQ(7u, remote.id());
+  EXPECT_EQ(6u, remote.id());
   EXPECT_EQ("chat", remote.label());
   EXPECT_EQ("text", remote.protocol());
   EXPECT_EQ(Lp2pDataChannel::State::kOpen, remote.state());
@@ -203,24 +203,46 @@ TEST_F(Lp2pConnectionTest, ReceiverOpensChannelOnExistingConnection) {
       receiver_delegate_.connections[0]->CreateDataChannel({.label = "back"},
                                                            &opener);
   ASSERT_TRUE(channel.is_value());
+  // The receiver side allocates odd IDs.
+  EXPECT_EQ(1u, channel.value()->id());
   quic_bridge_.RunTasksUntilIdle();
   EXPECT_EQ(Lp2pDataChannel::State::kOpen, channel.value()->state());
   ASSERT_EQ(1u, request_connection_delegate_.channels.size());
   EXPECT_EQ("back", request_connection_delegate_.channels[0]->label());
+  EXPECT_EQ(1u, request_connection_delegate_.channels[0]->id());
 }
 
 TEST_F(Lp2pConnectionTest, PicksUnusedChannelIds) {
   ASSERT_NO_FATAL_FAILURE(Connect());
+  // The requester side allocates even IDs.
   std::unique_ptr<Lp2pDataChannel> first = OpenChannel({});
   std::unique_ptr<Lp2pDataChannel> second = OpenChannel({});
   ASSERT_TRUE(first && second);
   EXPECT_EQ(0u, first->id());
-  EXPECT_EQ(1u, second->id());
+  EXPECT_EQ(2u, second->id());
 
-  EXPECT_TRUE(request_delegate_.connection
-                  ->CreateDataChannel({.id = kMaxLp2pDataChannelId + 1},
-                                      &request_channel_)
+  // An explicit ID must be in range, free and of the local parity.
+  Lp2pConnection& connection = *request_delegate_.connection;
+  EXPECT_TRUE(connection
+                  .CreateDataChannel({.id = kMaxLp2pDataChannelId + 1},
+                                     &request_channel_)
                   .is_error());
+  EXPECT_TRUE(
+      connection.CreateDataChannel({.id = 2}, &request_channel_).is_error());
+  EXPECT_TRUE(
+      connection.CreateDataChannel({.id = 5}, &request_channel_).is_error());
+  std::unique_ptr<Lp2pDataChannel> explicit_id = OpenChannel({.id = 6});
+  ASSERT_TRUE(explicit_id);
+  EXPECT_EQ(6u, explicit_id->id());
+  std::unique_ptr<Lp2pDataChannel> third = OpenChannel({});
+  ASSERT_TRUE(third);
+  EXPECT_EQ(4u, third->id());
+
+  // A closed channel's ID is free again.
+  first->Close();
+  std::unique_ptr<Lp2pDataChannel> fourth = OpenChannel({});
+  ASSERT_TRUE(fourth);
+  EXPECT_EQ(0u, fourth->id());
 }
 
 TEST_F(Lp2pConnectionTest, RejectedChannelCloses) {

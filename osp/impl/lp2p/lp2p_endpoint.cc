@@ -38,9 +38,11 @@ ErrorOr<size_t> Decode(const uint8_t* buffer,
 
 Lp2pEndpoint::Lp2pEndpoint(ProtocolConnectionEndpoint& endpoint,
                            TaskRunner& task_runner,
+                           bool is_quic_client,
                            ConnectionFactory connection_factory)
     : endpoint_(endpoint),
       task_runner_(task_runner),
+      is_quic_client_(is_quic_client),
       connection_factory_(std::move(connection_factory)) {
   MessageDemuxer& demuxer = endpoint_->GetMessageDemuxer();
   open_request_watch_ = demuxer.SetDefaultMessageTypeWatch(

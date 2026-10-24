@@ -21,7 +21,10 @@ Lp2pRequest::Lp2pRequest(ProtocolConnectionClient& client,
     : client_(client),
       // Data channels from peers are only accepted on connections this side
       // made.
-      endpoint_(std::make_unique<Lp2pEndpoint>(client, task_runner, nullptr)) {}
+      endpoint_(std::make_unique<Lp2pEndpoint>(client,
+                                               task_runner,
+                                               /*is_quic_client=*/true,
+                                               nullptr)) {}
 
 Lp2pRequest::~Lp2pRequest() = default;
 

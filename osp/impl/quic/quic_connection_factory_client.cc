@@ -81,9 +81,12 @@ ErrorOr<std::unique_ptr<QuicConnection>> QuicConnectionFactoryClient::Connect(
     proof_verifier_ = proof_verifier.get();
     crypto_client_config_ = std::make_unique<quic::QuicCryptoClientConfig>(
         std::move(proof_verifier), nullptr);
+    // network.bs: "Both advertising agents and listening agents must use the
+    // agent certificate in TLS 1.3 Certificate messages". The config is
+    // shared by all connections, so offer the certificate for any server
+    // ("*"), not only for the first one connected to.
     crypto_client_config_->set_proof_source(
-        QuicServiceBase::GetAgentCertificate().CreateClientProofSource(
-            host_name));
+        QuicServiceBase::GetAgentCertificate().CreateClientProofSource("*"));
   }
   // Pin the agent fingerprint advertised by this agent (network.bs "TLS 1.3").
   proof_verifier_->SetFingerprint(host_name, connect_data.fingerprint);

@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <cstring>
+
 #include "gtest/gtest.h"
 #include "osp/msgs/osp_messages.h"
 
@@ -232,8 +234,8 @@ TEST(PresentationMessagesTest, EncodePresentationConnectionCloseEvent) {
       .connection_id = 2,
       .reason =
           msgs::PresentationConnectionCloseEvent_reason::kCloseMethodCalled,
-      .connection_count = 2,
-      .error_message = "test message"};
+      .error_message = "test message",
+      .connection_count = 2};
   bytes_out = EncodePresentationConnectionCloseEvent(event_with_message, buffer,
                                                      sizeof(buffer));
   ASSERT_LE(bytes_out, static_cast<int64_t>(sizeof(buffer)));
@@ -246,6 +248,53 @@ TEST(PresentationMessagesTest, EncodePresentationConnectionCloseEvent) {
   EXPECT_EQ(2u, decoded_event_with_message.connection_id);
   EXPECT_EQ(2u, decoded_event_with_message.connection_count);
   EXPECT_EQ("test message", decoded_event_with_message.error_message);
+
+  // application_messages.cddl: "? 2: text ; error-message" and
+  // "3: uint ; connection-count".
+  const uint8_t kExpected[] = {0xa4, 0x00, 0x02, 0x01, 0x01, 0x02, 0x6c,
+                               't',  'e',  's',  't',  ' ',  'm',  'e',
+                               's',  's',  'a',  'g',  'e',  0x03, 0x02};
+  ASSERT_EQ(bytes_out, static_cast<int64_t>(sizeof(kExpected)));
+  EXPECT_EQ(0, memcmp(kExpected, buffer, sizeof(kExpected)));
+}
+
+// remote-playback-state "supports" uses keys 0 to 4, and epoch, duration and
+// resolution may be null, which decodes like an absent member.
+TEST(RemotePlaybackMessagesTest, DecodeRemotePlaybackStateEvent) {
+  const uint8_t kEvent[] = {
+      0xa2, 0x00, 0x07,        // remote-playback-id: 7
+      0x01, 0xa4,              // state: map(4)
+      0x00, 0xa5,              // supports: map(5)
+      0x00, 0xf5, 0x01, 0xf4,  // rate: true, preload: false
+      0x02, 0xf5, 0x03, 0xf4,  // poster: true, added-text-track: false
+      0x04, 0xf5,              // added-cues: true
+      0x05, 0xf6,              // epoch: null
+      0x06, 0xf6,              // duration: null
+      0x12, 0xf6,              // resolution: null
+  };
+  msgs::RemotePlaybackStateEvent event;
+  ASSERT_EQ(
+      static_cast<int64_t>(sizeof(kEvent)),
+      msgs::DecodeRemotePlaybackStateEvent(kEvent, sizeof(kEvent), event));
+  EXPECT_EQ(7u, event.remote_playback_id);
+  ASSERT_TRUE(event.state.supports);
+  EXPECT_TRUE(event.state.supports->rate);
+  EXPECT_FALSE(event.state.supports->preload);
+  EXPECT_TRUE(event.state.supports->poster);
+  EXPECT_FALSE(event.state.supports->added_text_track);
+  EXPECT_TRUE(event.state.supports->added_cues);
+  EXPECT_FALSE(event.state.epoch);
+  EXPECT_FALSE(event.state.duration);
+  EXPECT_FALSE(event.state.resolution);
+
+  // A non-null value still decodes.
+  const uint8_t kEventWithEpoch[] = {0xa2, 0x00, 0x07, 0x01,
+                                     0xa1, 0x05, 0x18, 0x2a};
+  ASSERT_EQ(static_cast<int64_t>(sizeof(kEventWithEpoch)),
+            msgs::DecodeRemotePlaybackStateEvent(
+                kEventWithEpoch, sizeof(kEventWithEpoch), event));
+  ASSERT_TRUE(event.state.epoch);
+  EXPECT_EQ(42, *event.state.epoch);
 }
 
 }  // namespace openscreen::osp

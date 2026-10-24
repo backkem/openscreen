@@ -233,8 +233,8 @@ presentation-connection-close-event = {
     connection-object-discarded: 10
     unrecoverable-error-while-sending-or-receiving-message: 100
   ) ; reason
-  2: uint ; connection-count
-  ? 3: text ; error-message
+  ? 2: text ; error-message
+  3: uint ; connection-count
 }
 
 ; type key 121
@@ -321,8 +321,8 @@ remote-playback-termination-response = {
 
 ; type key 119
 remote-playback-termination-event = {
- 0: remote-playback-id ; remote-playback-id
- 1: &(
+  0: remote-playback-id ; remote-playback-id
+  1: &(
     receiver-called-terminate: 1
     user-terminated-via-receiver: 2
     receiver-idle-too-long: 30
@@ -377,11 +377,11 @@ remote-playback-controls = {
 
 remote-playback-state = {
   ? 0: {
-        1: bool ; rate
-        2: bool ; preload
-        3: bool ; poster
-        4: bool ; added-text-track
-        5: bool ; added-cues
+    0: bool ; rate
+    1: bool ; preload
+    2: bool ; poster
+    3: bool ; added-text-track
+    4: bool ; added-cues
   } ; supports
   ? 1: remote-playback-source ; source
   ? 2: &(
@@ -398,8 +398,8 @@ remote-playback-state = {
     enough: 4
   ) ; loaded
   ? 4: media-error ; error
-  ? 5: epoch-time ; epoch
-  ? 6: media-timeline ; duration
+  ? 5: epoch-time / null ; epoch
+  ? 6: media-timeline / null ; duration
   ? 7: [* media-timeline-range] ; buffered-time-ranges
   ? 8: [* media-timeline-range] ; seekable-time-ranges
   ? 9: [* media-timeline-range] ; played-time-ranges
@@ -411,7 +411,7 @@ remote-playback-state = {
   ? 15: bool ; ended
   ? 16: float64 ; volume
   ? 17: bool ; muted
-  ? 18: video-resolution ; resolution
+  ? 18: video-resolution / null ; resolution
   ? 19: [* audio-track-state] ; audio-tracks
   ? 20: [* video-track-state] ; video-tracks
   ? 21: [* text-track-state] ; text-tracks

@@ -306,6 +306,10 @@ struct CppType {
   Which which = Which::kUninitialized;
   std::string name;
   std::optional<uint64_t> type_key;
+  // For kOptional members declared as `? key: type / null`: a CBOR null value
+  // is decoded as an absent member. Null is never encoded; the member is
+  // omitted instead, which the CDDL allows too.
+  bool optional_nullable = false;
   union {
     Vector vector_type;
     Enum enum_type;

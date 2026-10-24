@@ -1502,7 +1502,18 @@ bool WriteMapDecoder(std::ostream& os,
               decoder_depth, x.name, found_var);
       }
 
-      Write(os, "  if ({}) {{\n", found_var);
+      if (x.type->optional_nullable) {
+        // `? key: type / null`: decode null like an absent member.
+        Write(os, "  if ({} && cbor_value_is_null(&it{})) {{\n", found_var,
+              decoder_depth);
+        Write(os,
+              "    CBOR_RETURN_ON_ERROR(cbor_value_advance_fixed(&it{}));\n",
+              decoder_depth);
+        Write(os, "    {}.{}.reset();\n", name, cid);
+        Write(os, "  }} else if ({}) {{\n", found_var);
+      } else {
+        Write(os, "  if ({}) {{\n", found_var);
+      }
       std::string temp_val = "val_" + std::to_string((*temporary_count)++);
       Write(os, "    auto& {} = {}.{}.emplace();\n", temp_val, name, cid);
       if (!WriteDecoder(os, temp_val, *x.type->optional_type, decoder_depth,

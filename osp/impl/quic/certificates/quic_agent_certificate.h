@@ -82,7 +82,8 @@ class QuicAgentCertificate final : public AgentCertificate {
   std::unique_ptr<quic::ProofSource> CreateServerProofSource();
 
   // Create a ProofSource for client using currently active agent certificate
-  // and private key.
+  // and private key. `server_hostname` may be "*" to use the certificate for
+  // any server.
   std::unique_ptr<quic::ClientProofSource> CreateClientProofSource(
       std::string_view server_hostname);
 

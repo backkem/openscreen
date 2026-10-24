@@ -17,7 +17,10 @@
 #include "osp/public/authentication_config.h"
 #include "osp/public/message_demuxer.h"
 #include "osp/public/protocol_connection.h"
+#include "platform/api/task_runner.h"
+#include "platform/api/time.h"
 #include "platform/base/error.h"
+#include "util/alarm.h"
 #include "util/crypto/spake2.h"
 #include "util/raw_ref.h"
 
@@ -65,7 +68,9 @@ class AgentAuthenticator final : public MessageDemuxer::MessageCallback {
   AgentAuthenticator(const AgentInfoConfig& agent_info,
                      const AuthenticationConfig& config,
                      MessageDemuxer& demuxer,
-                     Delegate& delegate);
+                     Delegate& delegate,
+                     ClockNowFunctionPtr now_function,
+                     TaskRunner& task_runner);
   AgentAuthenticator(const AgentAuthenticator&) = delete;
   AgentAuthenticator& operator=(const AgentAuthenticator&) = delete;
   ~AgentAuthenticator() override;
@@ -121,6 +126,8 @@ class AgentAuthenticator final : public MessageDemuxer::MessageCallback {
     bool sent_confirmation = false;
     bool authenticated = false;
     bool failed = false;
+    // Fires `config_.timeout` after `Start` unless authentication completed.
+    std::unique_ptr<Alarm> timeout_alarm;
   };
 
   bool IsPresenter(const State& state) const;
@@ -139,6 +146,7 @@ class AgentAuthenticator final : public MessageDemuxer::MessageCallback {
                           const std::vector<uint8_t>& confirmation);
   void MaybeSendConfirmation(State& state);
   void MaybeVerifyPeerConfirmation(uint64_t instance_id, State& state);
+  void OnTimeout(uint64_t instance_id);
   void Fail(uint64_t instance_id,
             State& state,
             msgs::AuthStatusResult result,
@@ -152,6 +160,8 @@ class AgentAuthenticator final : public MessageDemuxer::MessageCallback {
   const AuthenticationConfig config_;
   const raw_ref<MessageDemuxer> demuxer_;
   const raw_ref<Delegate> delegate_;
+  const ClockNowFunctionPtr now_function_;
+  const raw_ref<TaskRunner> task_runner_;
   uint64_t next_request_id_ = 1;
   std::map<uint64_t, std::unique_ptr<State>> states_;
   std::vector<MessageDemuxer::MessageWatch> watches_;

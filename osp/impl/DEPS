@@ -15,6 +15,7 @@ include_rules = [
   # Allowed to use boringssl module.
   '+openssl/base.h',
   '+openssl/bio.h',
+  '+openssl/bn.h',
   '+openssl/evp.h',
   '+openssl/nid.h',
   '+openssl/x509.h',

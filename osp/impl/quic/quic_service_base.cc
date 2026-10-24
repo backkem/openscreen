@@ -30,6 +30,16 @@ QuicServiceBase::QuicServiceBase(
       now_function_(now_function),
       task_runner_(task_runner),
       observer_(observer) {
+  // network.bs "Agent Certificates": Issuer CN = model-name, Subject CN =
+  // agent hostname. Only an advertising agent has a DNS-SD instance name.
+  const bool is_server = role == InstanceRequestIds::Role::kServer;
+  QuicAgentCertificate::Identity identity;
+  identity.model_name = config.agent_info.model_name;
+  identity.instance_name =
+      is_server ? config.instance_name : config.agent_info.display_name;
+  if (!GetAgentCertificate().SetIdentity(identity, /*overwrite=*/is_server)) {
+    OSP_LOG_WARN << "Failed to set up the agent certificate fields";
+  }
   authenticator_ = std::make_unique<AgentAuthenticator>(
       config.agent_info, config.authentication, demuxer_, *this, now_function,
       task_runner);

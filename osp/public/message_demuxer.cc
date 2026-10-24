@@ -199,6 +199,24 @@ MessageDemuxer::MessageWatch MessageDemuxer::SetDefaultMessageTypeWatch(
   return MessageWatch(this, true, 0, message_type);
 }
 
+void MessageDemuxer::SetMessageGate(MessageGate gate) {
+  gate_ = std::move(gate);
+}
+
+void MessageDemuxer::RetryBufferedMessages(uint64_t instance_id) {
+  auto instance_entry = buffers_.find(instance_id);
+  if (instance_entry == buffers_.end()) {
+    return;
+  }
+  auto callbacks_entry = message_callbacks_.find(instance_id);
+  for (auto& stream : instance_entry->second) {
+    if (!stream.second.empty()) {
+      HandleStreamBufferLoop(instance_id, stream.first, callbacks_entry,
+                             stream.second);
+    }
+  }
+}
+
 void MessageDemuxer::OnStreamData(uint64_t instance_id,
                                   uint64_t connection_id,
                                   const uint8_t* data,
@@ -289,6 +307,15 @@ MessageDemuxer::HandleStreamBufferResult MessageDemuxer::HandleStreamBuffer(
   if (message_type.is_error()) {
     buffer.clear();
     return HandleStreamBufferResult{.handled = false, .consumed = 0};
+  }
+
+  if (gate_ && !gate_(instance_id, message_type.value())) {
+    // Keep the message buffered. Reporting it as handled stops the caller from
+    // trying other callbacks.
+    OSP_VLOG << "holding back message type "
+             << static_cast<int>(message_type.value()) << " from instance "
+             << instance_id;
+    return HandleStreamBufferResult{.handled = true, .consumed = 0};
   }
 
   auto callback_entry = message_callbacks->find(message_type.value());

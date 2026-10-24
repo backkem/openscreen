@@ -353,6 +353,44 @@ TEST_F(MessageDemuxerTest, BufferLimit) {
   ExpectDecodedRequest(decode_result, received_request);
 }
 
+TEST_F(MessageDemuxerTest, GateHoldsMessagesUntilRetried) {
+  bool allowed = false;
+  demuxer_.SetMessageGate([&allowed](uint64_t, msgs::Type) { return allowed; });
+  MessageDemuxer::MessageWatch watch = demuxer_.WatchMessageType(
+      endpoint_id_, msgs::Type::kPresentationConnectionOpenRequest,
+      &mock_callback_);
+  ASSERT_TRUE(watch);
+
+  // The message is buffered while the gate rejects it.
+  EXPECT_CALL(mock_callback_, OnStreamMessage(_, _, _, _, _, _)).Times(0);
+  demuxer_.OnStreamData(endpoint_id_, connection_id_, buffer_.data(),
+                        buffer_.size());
+  testing::Mock::VerifyAndClearExpectations(&mock_callback_);
+
+  // Once the gate allows it, RetryBufferedMessages delivers it exactly once.
+  allowed = true;
+  msgs::PresentationConnectionOpenRequest received_request;
+  msgs::CborResult decode_result = 0;
+  EXPECT_CALL(
+      mock_callback_,
+      OnStreamMessage(endpoint_id_, connection_id_,
+                      msgs::Type::kPresentationConnectionOpenRequest, _, _, _))
+      .WillOnce([&decode_result, &received_request](
+                    uint64_t endpoint_id, uint64_t connection_id,
+                    msgs::Type message_type, const uint8_t* buffer,
+                    size_t buffer_size, Clock::time_point now) {
+        decode_result = msgs::DecodePresentationConnectionOpenRequest(
+            buffer, buffer_size, received_request);
+        return ConvertDecodeResult(decode_result);
+      });
+  demuxer_.RetryBufferedMessages(endpoint_id_);
+  ExpectDecodedRequest(decode_result, received_request);
+
+  // The message was consumed, so a second retry does not deliver it again.
+  EXPECT_CALL(mock_callback_, OnStreamMessage(_, _, _, _, _, _)).Times(0);
+  demuxer_.RetryBufferedMessages(endpoint_id_);
+}
+
 TEST_F(MessageDemuxerTest, DeserializeMessages) {
   std::vector<uint8_t> kAgentInfoResponseSerialized = {0x0B, 0xFF};
   std::vector<uint8_t> kPresentationConnectionCloseEventSerialized = {

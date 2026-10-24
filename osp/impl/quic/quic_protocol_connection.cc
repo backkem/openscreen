@@ -31,9 +31,13 @@ QuicProtocolConnection::QuicProtocolConnection(QuicStream* stream,
 
 QuicProtocolConnection::~QuicProtocolConnection() {
   // When this is destroyed, if there is still a underlying QuicStream serving
-  // this, we should close it and OnClose will be triggered before this function
-  // completes.
+  // this, close it. Closing a stream that has data to send finishes it rather
+  // than resetting it, so the stream may close after this is gone: detach from
+  // the stream manager first.
   if (stream_) {
+    if (stream_manager_) {
+      stream_manager_->RemoveStream(*this);
+    }
     stream_->Close();
   }
 }

@@ -39,9 +39,14 @@ class QuicProtocolConnection final : public ProtocolConnection {
 
   void OnClose();
 
+  void set_stream_manager(QuicStreamManager* manager) {
+    stream_manager_ = manager;
+  }
+
  private:
   uint64_t instance_id_ = 0u;
   raw_ptr<QuicStream> stream_ = nullptr;
+  raw_ptr<QuicStreamManager> stream_manager_ = nullptr;
 };
 
 }  // namespace openscreen::osp

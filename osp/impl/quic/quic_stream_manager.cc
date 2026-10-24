@@ -57,6 +57,18 @@ std::unique_ptr<QuicProtocolConnection> QuicStreamManager::OnIncomingStream(
 
 void QuicStreamManager::AddStream(QuicProtocolConnection& protocol_connection) {
   streams_by_id_.emplace(protocol_connection.GetID(), &protocol_connection);
+  protocol_connection.set_stream_manager(this);
+}
+
+void QuicStreamManager::RemoveStream(
+    QuicProtocolConnection& protocol_connection) {
+  // Keep the entry so that data and the close of the stream still reach the
+  // delegate.
+  auto stream_entry = streams_by_id_.find(protocol_connection.GetID());
+  if (stream_entry != streams_by_id_.end() &&
+      stream_entry->second == &protocol_connection) {
+    stream_entry->second = nullptr;
+  }
 }
 
 }  // namespace openscreen::osp

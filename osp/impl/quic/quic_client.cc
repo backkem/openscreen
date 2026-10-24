@@ -70,6 +70,13 @@ bool QuicClient::Connect(std::string_view instance_name,
   if (instance_entry != instance_map_.end()) {
     uint64_t request_id = next_request_id_++;
     request = ConnectRequest(this, request_id);
+    auto authenticating =
+        authenticating_callbacks_.find(instance_entry->second);
+    if (authenticating != authenticating_callbacks_.end()) {
+      // Still authenticating; complete the request once that is done.
+      authenticating->second.emplace_back(request_id, request_callback);
+      return true;
+    }
     request_callback->OnConnectSucceed(request_id, instance_entry->first,
                                        instance_entry->second);
     return true;
@@ -113,6 +120,19 @@ void QuicClient::OnAllReceiversRemoved() {
 
 void QuicClient::OnError(const Error&) {}
 
+AgentAuthenticator::PeerInfo QuicClient::GetPeerInfo(
+    std::string_view instance_name) {
+  AgentAuthenticator::PeerInfo peer;
+  peer.local_is_server = false;
+  auto it = instance_infos_.find(instance_name);
+  if (it != instance_infos_.end()) {
+    peer.peer_fingerprint = it->second.fingerprint;
+    // The `at` advertised by the server (advertising agent).
+    peer.auth_token = it->second.auth_token;
+  }
+  return peer;
+}
+
 bool QuicClient::StartConnectionRequest(
     std::string_view instance_name,
     ConnectRequest& request,
@@ -152,6 +172,16 @@ bool QuicClient::StartConnectionRequest(
 }
 
 void QuicClient::CancelConnectRequest(uint64_t request_id) {
+  for (auto& entry : authenticating_callbacks_) {
+    auto& callbacks = entry.second;
+    auto size_before_delete = callbacks.size();
+    std::erase_if(callbacks, [request_id](const auto& callback) {
+      return request_id == callback.first;
+    });
+    if (size_before_delete > callbacks.size()) {
+      return;
+    }
+  }
   for (auto it = pending_connections_.begin(); it != pending_connections_.end();
        ++it) {
     auto& callbacks = it->second.callbacks;

@@ -65,7 +65,15 @@ class QuicServer final : public ProtocolConnectionServer,
 
   const std::string& instance_name() const { return instance_name_; }
 
+ protected:
+  // QuicServiceBase overrides.
+  AgentAuthenticator::PeerInfo GetPeerInfo(
+      std::string_view instance_name) override;
+
  private:
+  // FakeQuicBridge needs to set up the peer fingerprint and token for tests.
+  friend class FakeQuicBridge;
+
   // QuicConnectionFactoryServer::ServerDelegate overrides.
   QuicConnection::Delegate& GetConnectionDelegate() override { return *this; }
   void OnIncomingConnection(

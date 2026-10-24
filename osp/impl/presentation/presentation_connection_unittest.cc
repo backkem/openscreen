@@ -5,6 +5,7 @@
 #include "osp/public/presentation/presentation_connection.h"
 
 #include <memory>
+#include <vector>
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -152,9 +153,17 @@ TEST_F(ConnectionTest, ConnectAndSend) {
         controller_stream = CreateClientProtocolConnection(instance_id);
       });
 
+  // The first incoming stream carries the client's network-phase messages
+  // (agent-info and authentication); the stream under test is the last one.
+  std::vector<std::unique_ptr<ProtocolConnection>> network_streams;
   EXPECT_CALL(quic_bridge_.mock_server_observer(), OnIncomingConnectionMock(_))
-      .WillOnce(testing::WithArgs<0>(
-          [&receiver_stream](std::unique_ptr<ProtocolConnection>& connection) {
+      .Times(testing::AtLeast(1))
+      .WillRepeatedly(testing::WithArgs<0>(
+          [&receiver_stream,
+           &network_streams](std::unique_ptr<ProtocolConnection>& connection) {
+            if (receiver_stream) {
+              network_streams.push_back(std::move(receiver_stream));
+            }
             receiver_stream = std::move(connection);
           }));
 

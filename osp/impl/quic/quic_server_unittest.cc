@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -76,11 +77,18 @@ class QuicServerTest : public Test {
                   quic_bridge_.GetQuicClient()->CreateProtocolConnection(
                       instance_id);
             });
+    // The first incoming stream carries the client's network-phase messages
+    // (agent-info and authentication); the stream under test is the last one.
     EXPECT_CALL(quic_bridge_.mock_server_observer(),
                 OnIncomingConnectionMock(_))
-        .WillOnce([&stream](std::unique_ptr<ProtocolConnection>& connection) {
-          stream = std::move(connection);
-        });
+        .Times(testing::AtLeast(1))
+        .WillRepeatedly(
+            [this, &stream](std::unique_ptr<ProtocolConnection>& connection) {
+              if (stream) {
+                network_streams_.push_back(std::move(stream));
+              }
+              stream = std::move(connection);
+            });
     quic_bridge_.RunTasksUntilIdle();
     return stream;
   }
@@ -91,6 +99,8 @@ class QuicServerTest : public Test {
   }
 
   void TearDown() override { connect_request_.MarkComplete(); }
+
+  std::vector<std::unique_ptr<ProtocolConnection>> network_streams_;
 
   void SendTestMessage(ProtocolConnection* connection) {
     MockMessageCallback mock_message_callback;

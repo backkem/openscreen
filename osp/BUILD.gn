@@ -22,6 +22,7 @@ if (!is_win) {
       "impl/presentation/presentation_controller_unittest.cc",
       "impl/presentation/presentation_receiver_unittest.cc",
       "impl/presentation/testing/mock_connection_delegate.h",
+      "impl/quic/agent_authenticator_unittest.cc",
       "impl/quic/quic_client_unittest.cc",
       "impl/quic/quic_server_unittest.cc",
       "public/instance_request_ids_unittest.cc",

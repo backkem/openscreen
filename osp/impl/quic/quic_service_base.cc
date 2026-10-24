@@ -29,7 +29,18 @@ QuicServiceBase::QuicServiceBase(
       connection_endpoints_(config.connection_endpoints),
       now_function_(now_function),
       task_runner_(task_runner),
-      observer_(observer) {}
+      observer_(observer) {
+  authenticator_ = std::make_unique<AgentAuthenticator>(
+      config.agent_info, config.authentication, demuxer_, *this);
+  // network.bs: "If an OSP agent sees an agent certificate it has not yet
+  // verified through authentication, it must treat that agent as unverified
+  // and initiate authentication with that agent before allowing additional
+  // messages to be exchanged with that agent."
+  demuxer_.SetMessageGate([this](uint64_t instance_id, msgs::Type type) {
+    return AgentAuthenticator::IsNetworkPhaseMessage(type) ||
+           authenticator_->IsAuthenticated(instance_id);
+  });
+}
 
 QuicServiceBase::~QuicServiceBase() {
   CloseAllConnections();
@@ -55,12 +66,98 @@ uint64_t QuicServiceBase::OnCryptoHandshakeComplete(
       connection_data.connection.get());
   connections_.emplace(instance_id, std::move(connection_data));
 
-  // `callbacks` is empty for QuicServer, so this only works for QuicClient.
-  for (auto& request : callbacks) {
-    request.second->OnConnectSucceed(request.first, instance_name, instance_id);
-  }
+  // Connect requests complete once the peer has authenticated, see
+  // `OnAuthenticationSucceeded`. `callbacks` is empty for QuicServer.
+  authenticating_callbacks_[instance_id] = std::move(callbacks);
+
+  // The QuicConnection learns its instance ID from the return value, so start
+  // the network phase from a fresh task.
+  task_runner_->PostTask([weak_this = weak_factory_.GetWeakPtr(),
+                          name = std::string(instance_name),
+                          instance_id]() mutable {
+    if (weak_this) {
+      weak_this->StartNetworkPhase(std::move(name), instance_id);
+    }
+  });
 
   return instance_id;
+}
+
+void QuicServiceBase::StartNetworkPhase(std::string instance_name,
+                                        uint64_t instance_id) {
+  if (state_ != ProtocolConnectionEndpoint::State::kRunning ||
+      connections_.find(instance_id) == connections_.end()) {
+    return;
+  }
+  AgentAuthenticator::PeerInfo peer = GetPeerInfo(instance_name);
+  peer.local_fingerprint = GetAgentCertificate().GetAgentFingerprint();
+  peer.peer_name = instance_name;
+  authenticator_->Start(instance_id, std::move(peer));
+}
+
+std::unique_ptr<ProtocolConnection>
+QuicServiceBase::CreateNetworkProtocolConnection(uint64_t instance_id) {
+  return CreateProtocolConnectionImpl(instance_id);
+}
+
+void QuicServiceBase::OnAuthenticationSucceeded(uint64_t instance_id) {
+  auto callbacks_entry = authenticating_callbacks_.find(instance_id);
+  if (callbacks_entry != authenticating_callbacks_.end()) {
+    auto callbacks = std::move(callbacks_entry->second);
+    authenticating_callbacks_.erase(callbacks_entry);
+    std::string instance_name;
+    for (const auto& entry : instance_map_) {
+      if (entry.second == instance_id) {
+        instance_name = entry.first;
+      }
+    }
+    for (auto& request : callbacks) {
+      request.second->OnConnectSucceed(request.first, instance_name,
+                                       instance_id);
+    }
+  }
+  // Deliver application messages that were held back. This is called from
+  // within the demuxer, so retry from a fresh task.
+  task_runner_->PostTask([weak_this = weak_factory_.GetWeakPtr(), instance_id] {
+    if (weak_this) {
+      weak_this->demuxer_.RetryBufferedMessages(instance_id);
+    }
+  });
+}
+
+void QuicServiceBase::OnAuthenticationFailed(uint64_t instance_id,
+                                             const Error& error) {
+  std::string instance_name;
+  for (const auto& entry : instance_map_) {
+    if (entry.second == instance_id) {
+      instance_name = entry.first;
+    }
+  }
+  auto callbacks_entry = authenticating_callbacks_.find(instance_id);
+  if (callbacks_entry != authenticating_callbacks_.end()) {
+    auto callbacks = std::move(callbacks_entry->second);
+    authenticating_callbacks_.erase(callbacks_entry);
+    for (auto& request : callbacks) {
+      request.second->OnConnectFailed(request.first, instance_name);
+    }
+  }
+  // network.bs: "the agent must immediately disconnect." This is called from
+  // within the demuxer, so close from a fresh task.
+  OSP_LOG_WARN << "Closing connection to " << instance_name
+               << " after authentication failure: " << error;
+  task_runner_->PostTask([weak_this = weak_factory_.GetWeakPtr(), instance_id] {
+    if (!weak_this) {
+      return;
+    }
+    auto connection_entry = weak_this->connections_.find(instance_id);
+    if (connection_entry != weak_this->connections_.end()) {
+      connection_entry->second.connection->Close();
+    }
+  });
+}
+
+bool QuicServiceBase::IsAuthenticated(uint64_t instance_id) const {
+  return authenticator_->IsAuthenticated(instance_id);
 }
 
 void QuicServiceBase::OnIncomingStream(uint64_t instance_id,
@@ -267,6 +364,15 @@ void QuicServiceBase::Cleanup(std::string_view instance_name) {
           connection_entry->second.connection.get());
       instance_map_.erase(instance_entry);
       connections_.erase(connection_entry);
+      authenticator_->Remove(instance_id);
+      auto callbacks_entry = authenticating_callbacks_.find(instance_id);
+      if (callbacks_entry != authenticating_callbacks_.end()) {
+        auto callbacks = std::move(callbacks_entry->second);
+        authenticating_callbacks_.erase(callbacks_entry);
+        for (auto& request : callbacks) {
+          request.second->OnConnectFailed(request.first, instance_name);
+        }
+      }
     }
   }
 }

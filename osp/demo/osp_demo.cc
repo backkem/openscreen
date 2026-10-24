@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <charconv>
 #include <future>
 #include <iostream>
 #include <memory>
@@ -484,11 +485,17 @@ void RunControllerPollLoop(std::shared_ptr<Controller> controller) {
   state->watch.Reset();
 }
 
-void ListenerDemo() {
+void ListenerDemo(const AuthenticationConfig& auth_config) {
   SignalThings();
 
   ServiceListener::Config listener_config;
   ServiceConfig client_config;
+  client_config.authentication = auth_config;
+  client_config.agent_info = {
+      .display_name = "osp_demo controller",
+      .model_name = "Open Screen osp_demo",
+      .capabilities = {msgs::AgentCapability::kControlPresentation},
+      .locales = {"en"}};
   for (const InterfaceInfo& interface : GetNetworkInterfaces()) {
     OSP_VLOG << "Found interface: " << interface;
     if (!interface.addresses.empty() &&
@@ -586,7 +593,8 @@ void RunReceiverPollLoop(NetworkServiceManager* manager,
   }
 }
 
-void PublisherDemo(std::string_view friendly_name) {
+void PublisherDemo(std::string_view friendly_name,
+                   const AuthenticationConfig& auth_config) {
   SignalThings();
 
   constexpr uint16_t server_port = 6667;
@@ -595,6 +603,12 @@ void PublisherDemo(std::string_view friendly_name) {
       .connection_server_port = server_port};
   ServiceConfig server_config = {.instance_name =
                                      publisher_config.instance_name};
+  server_config.authentication = auth_config;
+  server_config.agent_info = {
+      .display_name = std::string(friendly_name),
+      .model_name = "Open Screen osp_demo",
+      .capabilities = {msgs::AgentCapability::kReceivePresentation},
+      .locales = {"en"}};
   for (const InterfaceInfo& interface : GetNetworkInterfaces()) {
     OSP_VLOG << "Found interface: " << interface;
     if (!interface.addresses.empty() &&
@@ -658,9 +672,11 @@ void PublisherDemo(std::string_view friendly_name) {
 
 struct InputArgs {
   std::string_view friendly_server_name;
-  bool is_verbose;
-  bool is_help;
-  bool tracing_enabled;
+  bool is_verbose = false;
+  bool is_help = false;
+  bool tracing_enabled = false;
+  bool is_invalid = false;
+  openscreen::osp::AuthenticationConfig auth_config;
 };
 
 void LogUsage(const char* argv0) {
@@ -673,6 +689,13 @@ usage: )" << argv0
 
     -t, --tracing: Enable performance trace logging.
 
+    --psk=<digits>: The PSK. The PSK presenter shows it (a random one is
+        generated and logged when omitted); the PSK consumer uses it as the
+        user's input and requires it.
+
+    --psk_ease_of_input=<0-100>: Sent in auth-capabilities (default 50). The
+        agent with the lower value presents the PSK; on a tie, the server.
+
     -v, --verbose: Enable verbose logging.
 
     -h, --help: Show this help message.
@@ -684,17 +707,41 @@ InputArgs GetInputArgs(int argc, char** argv) {
   // between all Open Screen executables. If it is a platform feature
   // being exposed, consider if it applies to the standalone receiver,
   // standalone sender, osp demo, and test_main argument options.
+  enum LongOnlyOption {
+    kPsk = 1000,
+    kPskEaseOfInput,
+  };
   const get_opt::option kArgumentOptions[] = {
       {"tracing", no_argument, nullptr, 't'},
       {"verbose", no_argument, nullptr, 'v'},
       {"help", no_argument, nullptr, 'h'},
+      {"psk", required_argument, nullptr, kPsk},
+      {"psk_ease_of_input", required_argument, nullptr, kPskEaseOfInput},
       {nullptr, 0, nullptr, 0}};
 
-  InputArgs args = {};
+  InputArgs args;
   int ch = -1;
   while ((ch = getopt_long(argc, argv, "tvh", kArgumentOptions, nullptr)) !=
          -1) {
+    const std::string_view value =
+        get_opt::optarg ? std::string_view(get_opt::optarg) : "";
     switch (ch) {
+      case kPsk:
+        args.auth_config.psk = std::string(value);
+        break;
+      case kPskEaseOfInput: {
+        uint64_t ease = 0;
+        const auto result =
+            std::from_chars(value.data(), value.data() + value.size(), ease);
+        if (result.ec != std::errc() || ease > 100) {
+          args.is_invalid = true;
+        }
+        args.auth_config.psk_ease_of_input = ease;
+        break;
+      }
+      case '?':
+        args.is_invalid = true;
+        break;
       case 't':
         args.tracing_enabled = true;
         break;
@@ -722,7 +769,7 @@ int main(int argc, char** argv) {
   using openscreen::PlatformClientPosix;
 
   InputArgs args = GetInputArgs(argc, argv);
-  if (args.is_help) {
+  if (args.is_help || args.is_invalid) {
     LogUsage(argv[0]);
     return 1;
   }
@@ -746,10 +793,10 @@ int main(int argc, char** argv) {
 
   if (is_receiver_demo) {
     OSP_LOG_INFO << "Running publisher demo...";
-    openscreen::osp::PublisherDemo(args.friendly_server_name);
+    openscreen::osp::PublisherDemo(args.friendly_server_name, args.auth_config);
   } else {
     OSP_LOG_INFO << "Running listener demo...";
-    openscreen::osp::ListenerDemo();
+    openscreen::osp::ListenerDemo(args.auth_config);
   }
 
   PlatformClientPosix::ShutDown();

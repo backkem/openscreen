@@ -23,7 +23,8 @@ struct ServiceInfo {
               const std::string& auth_token,
               NetworkInterfaceIndex network_interface_index,
               const IPEndpoint& v4_endpoint,
-              const IPEndpoint& v6_endpoint);
+              const IPEndpoint& v6_endpoint,
+              uint64_t metadata_version = 0);
 
   std::string ToString() const;
 
@@ -43,6 +44,9 @@ struct ServiceInfo {
   // service.
   IPEndpoint v4_endpoint;
   IPEndpoint v6_endpoint;
+
+  // The "mv" TXT value. Zero when the record does not carry one.
+  uint64_t metadata_version = 0;
 };
 
 std::ostream& operator<<(std::ostream& out, const ServiceInfo& info);

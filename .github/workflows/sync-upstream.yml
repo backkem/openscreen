@@ -1,0 +1,36 @@
+# Keeps main identical to Chromium's Open Screen Library main branch.
+#
+# main is a pure mirror: it only ever fast-forwards to upstream. If someone
+# commits to main directly, the fast-forward fails and this workflow errors out
+# instead of overwriting their work.
+
+name: Sync main with upstream
+
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fast-forward main to upstream
+        env:
+          UPSTREAM: https://chromium.googlesource.com/openscreen
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git init -q mirror
+          cd mirror
+          git fetch -q "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" main:refs/remotes/fork/main
+          git fetch -q "$UPSTREAM" main:refs/remotes/upstream/main
+          if git merge-base --is-ancestor fork/main upstream/main; then
+            git push -q "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" upstream/main:refs/heads/main
+            echo "main is now at $(git rev-parse --short upstream/main)"
+          else
+            echo "::error::main has diverged from upstream; not overwriting it."
+            exit 1
+          fi

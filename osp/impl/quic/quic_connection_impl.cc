@@ -51,6 +51,19 @@ void QuicConnectionImpl::Close() {
       quic::ConnectionCloseBehavior::SEND_CONNECTION_CLOSE_PACKET);
 }
 
+void QuicConnectionImpl::CloseWithApplicationError(uint64_t error_code,
+                                                   std::string_view reason) {
+  TRACE_SCOPED(TraceCategory::kQuic,
+               "QuicConnectionImpl::CloseWithApplicationError");
+  // Any QuicErrorCode that maps to an application close works here; the wire
+  // error code is replaced by `error_code`.
+  session_->connection()->CloseConnection(
+      quic::QUIC_HTTP_FRAME_ERROR,
+      static_cast<quic::QuicIetfTransportErrorCodes>(error_code),
+      std::string(reason),
+      quic::ConnectionCloseBehavior::SEND_CONNECTION_CLOSE_PACKET);
+}
+
 void QuicConnectionImpl::OnConnectionClosed(
     quic::QuicConnectionId server_connection_id,
     quic::QuicErrorCode error_code,

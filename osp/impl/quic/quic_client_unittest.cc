@@ -281,15 +281,15 @@ TEST_F(QuicClientTest, RequestIds) {
   std::unique_ptr<ProtocolConnection> connection =
       client_->CreateProtocolConnection(instance_id);
   ASSERT_TRUE(connection);
-  EXPECT_EQ(0u, client_->GetInstanceRequestIds().GetNextRequestId(instance_id));
+  EXPECT_EQ(1u, client_->GetInstanceRequestIds().GetNextRequestId(instance_id));
   EXPECT_EQ(2u, client_->GetInstanceRequestIds().GetNextRequestId(instance_id));
 
   connection->Close();
   quic_bridge_.RunTasksUntilIdle();
-  EXPECT_EQ(4u, client_->GetInstanceRequestIds().GetNextRequestId(instance_id));
+  EXPECT_EQ(3u, client_->GetInstanceRequestIds().GetNextRequestId(instance_id));
 
   client_->Stop();
-  EXPECT_EQ(0u, client_->GetInstanceRequestIds().GetNextRequestId(instance_id));
+  EXPECT_EQ(1u, client_->GetInstanceRequestIds().GetNextRequestId(instance_id));
 }
 
 }  // namespace openscreen::osp

@@ -70,13 +70,12 @@ class QuicServerTest : public Test {
                                           &mock_connect_request_callback);
     std::unique_ptr<ProtocolConnection> stream;
     EXPECT_CALL(mock_connect_request_callback, OnConnectSucceed(_, _, _))
-        .WillOnce(
-            [this](uint64_t request_id, std::string_view instance_name,
-                   uint64_t instance_id) {
-              client_connection_ =
-                  quic_bridge_.GetQuicClient()->CreateProtocolConnection(
-                      instance_id);
-            });
+        .WillOnce([this](uint64_t request_id, std::string_view instance_name,
+                         uint64_t instance_id) {
+          client_connection_ =
+              quic_bridge_.GetQuicClient()->CreateProtocolConnection(
+                  instance_id);
+        });
     // The first incoming stream carries the client's network-phase messages
     // (agent-info and authentication); the stream under test is the last one.
     EXPECT_CALL(quic_bridge_.mock_server_observer(),
@@ -223,12 +222,12 @@ TEST_F(QuicServerTest, RequestIds) {
 
   uint64_t instance_id = connection->GetInstanceID();
   EXPECT_EQ(1u, server_->GetInstanceRequestIds().GetNextRequestId(instance_id));
-  EXPECT_EQ(3u, server_->GetInstanceRequestIds().GetNextRequestId(instance_id));
+  EXPECT_EQ(2u, server_->GetInstanceRequestIds().GetNextRequestId(instance_id));
 
   connection->Close();
   connection.reset();
   quic_bridge_.RunTasksUntilIdle();
-  EXPECT_EQ(5u, server_->GetInstanceRequestIds().GetNextRequestId(instance_id));
+  EXPECT_EQ(3u, server_->GetInstanceRequestIds().GetNextRequestId(instance_id));
 
   server_->Stop();
   EXPECT_EQ(1u, server_->GetInstanceRequestIds().GetNextRequestId(instance_id));

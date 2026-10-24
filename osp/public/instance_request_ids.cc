@@ -6,14 +6,15 @@
 
 namespace openscreen::osp {
 
-InstanceRequestIds::InstanceRequestIds(Role role) : role_(role) {}
+InstanceRequestIds::InstanceRequestIds() = default;
 InstanceRequestIds::~InstanceRequestIds() = default;
 
 uint64_t InstanceRequestIds::GetNextRequestId(uint64_t instance_id) {
-  uint64_t& next_request_id = request_ids_by_instance_id_[instance_id];
-  uint64_t request_id = next_request_id + (role_ == Role::kServer);
-  next_request_id += 2;
-  return request_id;
+  // application.bs: "request-id and watch-id values are unsigned integer IDs
+  // that are assigned from a counter kept by each agent that starts at 1 and
+  // increments by 1 for each ID." Request IDs need not be unique across
+  // agents: each agent matches responses only against its own requests.
+  return ++request_ids_by_instance_id_[instance_id];
 }
 
 void InstanceRequestIds::ResetRequestId(uint64_t instance_id) {

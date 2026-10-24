@@ -12,17 +12,19 @@ namespace openscreen::osp {
 
 // Tracks the next available message request ID per instance by its instance
 // id. These can only be incremented while an instance is connected but can
-// be reset on disconnection.  This is necessary because all APIs that use CBOR
-// messages across a QUIC stream share the `request_id` field, which must be
-// unique within a pair of instances.
+// be reset on disconnection. All APIs that send CBOR requests to an instance
+// share this counter, which starts at 1 and increments by 1 (application.bs
+// "Requests, Responses, and Watches").
 class InstanceRequestIds final {
  public:
+  // Whether the agent is the QUIC client (listening agent) or server
+  // (advertising agent).
   enum class Role {
     kClient,
     kServer,
   };
 
-  explicit InstanceRequestIds(Role role);
+  InstanceRequestIds();
   InstanceRequestIds(const InstanceRequestIds&) = delete;
   InstanceRequestIds& operator=(const InstanceRequestIds&) = delete;
   InstanceRequestIds(InstanceRequestIds&&) noexcept = delete;
@@ -34,7 +36,6 @@ class InstanceRequestIds final {
   void Reset();
 
  private:
-  const Role role_;
   std::map<uint64_t, uint64_t> request_ids_by_instance_id_;
 };
 

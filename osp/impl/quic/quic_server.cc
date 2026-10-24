@@ -74,6 +74,19 @@ void QuicServer::OnClientCertificates(
       instance_name, QuicAgentCertificate::ComputeAgentFingerprint(certs[0]));
 }
 
+AgentAuthenticator::PeerInfo QuicServer::GetPeerInfo(
+    std::string_view instance_name) {
+  AgentAuthenticator::PeerInfo peer;
+  peer.local_is_server = true;
+  auto it = fingerprint_map_.find(instance_name);
+  if (it != fingerprint_map_.end()) {
+    peer.peer_fingerprint = it->second;
+  }
+  // The advertising agent's own `at`.
+  peer.auth_token = auth_token_;
+  return peer;
+}
+
 void QuicServer::OnIncomingConnection(
     std::unique_ptr<QuicConnection> connection) {
   if (state_ != State::kRunning) {

@@ -67,6 +67,11 @@ class QuicClient final : public ProtocolConnectionClient,
                ConnectRequest& request,
                ConnectRequestCallback* request_callback) override;
 
+ protected:
+  // QuicServiceBase overrides.
+  AgentAuthenticator::PeerInfo GetPeerInfo(
+      std::string_view instance_name) override;
+
  private:
   // FakeQuicBridge needs to access `instance_infos_` and struct InstanceInfo
   // for tests.

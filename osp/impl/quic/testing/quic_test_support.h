@@ -7,11 +7,13 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "gmock/gmock.h"
 #include "osp/impl/quic/quic_client.h"
 #include "osp/impl/quic/quic_server.h"
 #include "osp/impl/quic/testing/fake_quic_connection_factory.h"
+#include "osp/public/authentication_config.h"
 #include "osp/public/network_metrics.h"
 #include "osp/public/network_service_manager.h"
 #include "osp/public/protocol_connection_client.h"
@@ -45,15 +47,27 @@ class MockServiceObserver : public ProtocolConnectionServiceObserver {
   void OnIncomingConnection(
       std::unique_ptr<ProtocolConnection> connection) override {
     OnIncomingConnectionMock(connection);
+    // Keep streams the test did not take, so that dropping them does not
+    // close streams the network phase (authentication) uses.
+    if (connection) {
+      unclaimed_connections_.push_back(std::move(connection));
+    }
   }
   MOCK_METHOD(void,
               OnIncomingConnectionMock,
               (std::unique_ptr<ProtocolConnection> & connection));
+
+ private:
+  std::vector<std::unique_ptr<ProtocolConnection>> unclaimed_connections_;
 };
 
 class FakeQuicBridge {
  public:
-  FakeQuicBridge(FakeTaskRunner& task_runner, ClockNowFunctionPtr now_function);
+  // If `server_auth_override` is set, it replaces the server's authentication
+  // config (e.g. to use a different PSK).
+  FakeQuicBridge(FakeTaskRunner& task_runner,
+                 ClockNowFunctionPtr now_function,
+                 const AuthenticationConfig* server_auth_override = nullptr);
   FakeQuicBridge(const FakeQuicBridge&) = delete;
   FakeQuicBridge& operator=(const FakeQuicBridge&) = delete;
   FakeQuicBridge(FakeQuicBridge&&) noexcept = delete;
@@ -65,6 +79,7 @@ class FakeQuicBridge {
   const std::string kInstanceName = "test instance name";
   const std::string kFingerprint = "test fringprint";
   const std::string kAuthToken = "test token";
+  const std::string kPsk = "123456";
 
   void CreateNetworkServiceManager(
       std::unique_ptr<ServiceListener> service_listener,

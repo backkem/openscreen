@@ -13,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "osp/impl/quic/agent_authenticator.h"
 #include "osp/impl/quic/certificates/quic_agent_certificate.h"
 #include "osp/impl/quic/quic_connection_factory_base.h"
 #include "osp/impl/quic/quic_stream_manager.h"
@@ -27,6 +28,7 @@
 #include "platform/base/ip_address.h"
 #include "util/alarm.h"
 #include "util/raw_ref.h"
+#include "util/weak_ptr.h"
 
 namespace openscreen::osp {
 
@@ -34,7 +36,8 @@ namespace openscreen::osp {
 // in the connection establishment process, but they share much of the same
 // logic. This class holds common codes for the two classes.
 class QuicServiceBase : public QuicConnection::Delegate,
-                        public QuicStreamManager::Delegate {
+                        public QuicStreamManager::Delegate,
+                        public AgentAuthenticator::Delegate {
  public:
   static QuicAgentCertificate& GetAgentCertificate();
 
@@ -65,6 +68,16 @@ class QuicServiceBase : public QuicConnection::Delegate,
                       uint64_t protocol_connection_id,
                       ByteView bytes) override;
   void OnClose(uint64_t instance_id, uint64_t protocol_connection_id) override;
+
+  // AgentAuthenticator::Delegate overrides.
+  std::unique_ptr<ProtocolConnection> CreateNetworkProtocolConnection(
+      uint64_t instance_id) override;
+  void OnAuthenticationSucceeded(uint64_t instance_id) override;
+  void OnAuthenticationFailed(uint64_t instance_id,
+                              const Error& error) override;
+
+  // Returns true once the peer of `instance_id` has authenticated.
+  bool IsAuthenticated(uint64_t instance_id) const;
 
  protected:
   struct ServiceConnectionData {
@@ -102,6 +115,16 @@ class QuicServiceBase : public QuicConnection::Delegate,
   std::unique_ptr<ProtocolConnection> CreateProtocolConnectionImpl(
       uint64_t instance_id);
 
+  // Returns what the authenticator needs to know about the peer of a
+  // connection whose QUIC handshake just completed.
+  virtual AgentAuthenticator::PeerInfo GetPeerInfo(
+      std::string_view instance_name) = 0;
+
+  // Connect requests waiting for authentication, by instance ID. Only used by
+  // QuicClient.
+  std::map<uint64_t, std::vector<std::pair<uint64_t, ConnectRequestCallback*>>>
+      authenticating_callbacks_;
+
   ProtocolConnectionEndpoint::State state_ =
       ProtocolConnectionEndpoint::State::kStopped;
   InstanceRequestIds instance_request_ids_;
@@ -133,6 +156,9 @@ class QuicServiceBase : public QuicConnection::Delegate,
  private:
   void CloseAllConnections();
 
+  // Starts the network phase (metadata and authentication) for a connection.
+  void StartNetworkPhase(std::string instance_name, uint64_t instance_id);
+
   // Schedule the call to `Cleanup` for `instance_name`. This is called when
   // connection for `instance_name` needs to be destroyed, but have to wait for
   // the next event loop because related resources are still needed by the
@@ -156,6 +182,10 @@ class QuicServiceBase : public QuicConnection::Delegate,
   const ClockNowFunctionPtr now_function_;
   const raw_ref<TaskRunner> task_runner_;
   const raw_ref<ProtocolConnectionServiceObserver> observer_;
+
+  std::unique_ptr<AgentAuthenticator> authenticator_;
+
+  WeakPtrFactory<QuicServiceBase> weak_factory_{this};
 };
 
 }  // namespace openscreen::osp

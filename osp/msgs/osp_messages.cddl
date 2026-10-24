@@ -97,7 +97,9 @@ auth-spake2-psk-status = &(
 
 ; type key 1003
 auth-spake2-confirmation = {
-  0: bytes .size 64 ; confirmation-value
+  ; NOTE: network.bs has `bytes .size 64`, but the SPAKE2 ciphersuite it
+  ; mandates uses HMAC-SHA256, whose output (cA/cB) is 32 bytes.
+  0: bytes ; confirmation-value
 }
 
 auth-status-result = &(

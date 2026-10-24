@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "osp/public/authentication_config.h"
 #include "platform/base/ip_address.h"
 
 namespace openscreen::osp {
@@ -19,6 +20,10 @@ struct ServiceConfig {
 
   // This is empty for QuicClient and is only used by QuicServer.
   std::string instance_name;
+
+  // Network-phase settings: metadata discovery and authentication.
+  AgentInfoConfig agent_info;
+  AuthenticationConfig authentication;
 };
 
 }  // namespace openscreen::osp

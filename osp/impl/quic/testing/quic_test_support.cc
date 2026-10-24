@@ -20,7 +20,8 @@ MockServiceObserver::MockServiceObserver() = default;
 MockServiceObserver::~MockServiceObserver() = default;
 
 FakeQuicBridge::FakeQuicBridge(FakeTaskRunner& task_runner,
-                               ClockNowFunctionPtr now_function)
+                               ClockNowFunctionPtr now_function,
+                               const AuthenticationConfig* server_auth_override)
     : task_runner_(task_runner) {
   fake_bridge_ =
       std::make_unique<FakeQuicConnectionFactoryBridge>(kControllerEndpoint);
@@ -29,21 +30,39 @@ FakeQuicBridge::FakeQuicBridge(FakeTaskRunner& task_runner,
       task_runner, fake_bridge_.get());
   client_socket_ = std::make_unique<FakeUdpSocket>(fake_client_factory.get());
   ServiceConfig client_config = {.connection_endpoints = {kControllerEndpoint}};
+  client_config.authentication.psk = kPsk;
+  client_config.authentication.spake2_suite =
+      AuthenticationConfig::Spake2Suite::kP256;
   quic_client_ = std::make_unique<QuicClient>(
       client_config, std::move(fake_client_factory), mock_client_observer_,
       now_function, task_runner, MessageDemuxer::kDefaultBufferLimit);
   quic_client_->instance_infos_.emplace(
       kInstanceName,
-      QuicClient::InstanceInfo{kFingerprint, kAuthToken, kReceiverEndpoint});
+      QuicClient::InstanceInfo{
+          QuicServiceBase::GetAgentCertificate().GetAgentFingerprint(),
+          kAuthToken, kReceiverEndpoint});
 
   auto fake_server_factory = std::make_unique<FakeServerQuicConnectionFactory>(
       task_runner, fake_bridge_.get());
   server_socket_ = std::make_unique<FakeUdpSocket>(fake_server_factory.get());
   ServiceConfig server_config = {.connection_endpoints = {kReceiverEndpoint},
                                  .instance_name = {kInstanceName}};
+  server_config.authentication.psk = kPsk;
+  server_config.authentication.spake2_suite =
+      AuthenticationConfig::Spake2Suite::kP256;
+  if (server_auth_override) {
+    server_config.authentication = *server_auth_override;
+  }
   quic_server_ = std::make_unique<QuicServer>(
       server_config, std::move(fake_server_factory), mock_server_observer_,
       now_function, task_runner, MessageDemuxer::kDefaultBufferLimit);
+
+  // The fake connections carry no TLS certificates. Both agents live in this
+  // process and share the agent certificate.
+  quic_server_->auth_token_ = kAuthToken;
+  quic_server_->fingerprint_map_.emplace(
+      kControllerEndpoint.ToString(),
+      QuicServiceBase::GetAgentCertificate().GetAgentFingerprint());
 
   quic_client_->Start();
   quic_server_->Start();

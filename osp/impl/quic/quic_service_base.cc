@@ -31,7 +31,8 @@ QuicServiceBase::QuicServiceBase(
       task_runner_(task_runner),
       observer_(observer) {
   authenticator_ = std::make_unique<AgentAuthenticator>(
-      config.agent_info, config.authentication, demuxer_, *this);
+      config.agent_info, config.authentication, demuxer_, *this, now_function,
+      task_runner);
   // network.bs: "If an OSP agent sees an agent certificate it has not yet
   // verified through authentication, it must treat that agent as unverified
   // and initiate authentication with that agent before allowing additional

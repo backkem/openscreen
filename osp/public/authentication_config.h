@@ -5,6 +5,7 @@
 #ifndef OSP_PUBLIC_AUTHENTICATION_CONFIG_H_
 #define OSP_PUBLIC_AUTHENTICATION_CONFIG_H_
 
+#include <chrono>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -74,6 +75,13 @@ struct AuthenticationConfig {
   // Sent in auth-capabilities, "in the range of 20 to 60 bits inclusive, with
   // a default of 20."
   uint64_t psk_min_bits_of_entropy = 20;
+
+  // How long authentication may take from the end of the QUIC handshake
+  // before the agent gives up, sends auth-status `timeout` and closes the
+  // connection. network.bs sets no limit; this only bounds how long an
+  // unauthenticated connection is kept, for example when the peer never
+  // answers. It includes the time the user needs to enter a PSK.
+  std::chrono::milliseconds timeout = std::chrono::seconds(60);
 
   Spake2Suite spake2_suite = Spake2Suite::kEdwards25519;
   Spake2Identities spake2_identities = Spake2Identities::kClientServer;

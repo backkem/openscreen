@@ -69,11 +69,15 @@ bool AgentAuthenticator::IsNetworkPhaseMessage(msgs::Type type) {
 AgentAuthenticator::AgentAuthenticator(const AgentInfoConfig& agent_info,
                                        const AuthenticationConfig& config,
                                        MessageDemuxer& demuxer,
-                                       Delegate& delegate)
+                                       Delegate& delegate,
+                                       ClockNowFunctionPtr now_function,
+                                       TaskRunner& task_runner)
     : agent_info_(agent_info),
       config_(config),
       demuxer_(demuxer),
-      delegate_(delegate) {
+      delegate_(delegate),
+      now_function_(now_function),
+      task_runner_(task_runner) {
   for (msgs::Type type : kHandledTypes) {
     watches_.push_back(demuxer.SetDefaultMessageTypeWatch(type, this));
   }
@@ -91,6 +95,12 @@ void AgentAuthenticator::Start(uint64_t instance_id, PeerInfo peer) {
   }
   State& s = *state;
   states_[instance_id] = std::move(state);
+
+  if (config_.enabled) {
+    s.timeout_alarm = std::make_unique<Alarm>(now_function_, *task_runner_);
+    s.timeout_alarm->ScheduleFromNow(
+        [this, instance_id] { OnTimeout(instance_id); }, config_.timeout);
+  }
 
   OSP_LOG_INFO << "Network phase with " << s.peer.peer_name << " (instance "
                << instance_id << ", local "
@@ -488,9 +498,29 @@ void AgentAuthenticator::MaybeVerifyPeerConfirmation(uint64_t instance_id,
   status.result = msgs::AuthStatusResult::kAuthenticated;
   Send(state, status, &msgs::EncodeAuthStatus);
   state.authenticated = true;
+  state.timeout_alarm.reset();
   OSP_LOG_INFO << "SPAKE2: authenticated " << state.peer.peer_name << " as "
                << (state.is_alice ? "Alice" : "Bob");
   delegate_->OnAuthenticationSucceeded(instance_id);
+}
+
+void AgentAuthenticator::OnTimeout(uint64_t instance_id) {
+  auto it = states_.find(instance_id);
+  if (it == states_.end()) {
+    return;
+  }
+  State& state = *it->second;
+  if (state.authenticated || state.failed) {
+    return;
+  }
+  Fail(
+      instance_id, state, msgs::AuthStatusResult::kTimeout,
+      Error(Error::Code::kOperationCancelled,
+            "authentication did not complete within " +
+                std::to_string(std::chrono::duration_cast<std::chrono::seconds>(
+                                   config_.timeout)
+                                   .count()) +
+                " s"));
 }
 
 void AgentAuthenticator::Fail(uint64_t instance_id,
@@ -501,6 +531,7 @@ void AgentAuthenticator::Fail(uint64_t instance_id,
     return;
   }
   state.failed = true;
+  state.timeout_alarm.reset();
   OSP_LOG_WARN << "Authentication with " << state.peer.peer_name
                << " failed: " << error << " (auth-status " << result << ")";
   msgs::AuthStatus status;

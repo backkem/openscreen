@@ -146,5 +146,34 @@ TEST_F(AgentAuthenticatorTest, WrongPskFailsConnect) {
   EXPECT_FALSE(bridge_->GetQuicServer()->IsAuthenticated(1));
 }
 
+TEST_F(AgentAuthenticatorTest, StalledAuthenticationTimesOut) {
+  // NON-SPEC: the server skips authentication, so it never presents a PSK and
+  // ignores handshakes. The client, the PSK consumer, waits for the presenter
+  // until its authentication timeout.
+  AuthenticationConfig server_auth;
+  server_auth.enabled = false;
+  CreateBridge(&server_auth);
+  QuicClient* client = bridge_->GetQuicClient();
+
+  ConnectCallback callback;
+  ConnectRequest request;
+  ASSERT_TRUE(client->Connect(bridge_->kInstanceName, request, &callback));
+  bridge_->RunTasksUntilIdle();
+  EXPECT_FALSE(callback.succeeded());
+  EXPECT_FALSE(callback.failed());
+
+  const auto timeout = AuthenticationConfig().timeout;
+  fake_clock_.Advance(timeout - std::chrono::seconds(1));
+  bridge_->RunTasksUntilIdle();
+  EXPECT_FALSE(callback.failed());
+
+  // The connection is closed when the alarm fires, so only run the task
+  // runner: the fake bridge cannot pump packets of a closed connection.
+  fake_clock_.Advance(std::chrono::seconds(2));
+  task_runner_.RunTasksUntilIdle();
+  EXPECT_TRUE(callback.failed());
+  EXPECT_FALSE(callback.succeeded());
+}
+
 }  // namespace
 }  // namespace openscreen::osp

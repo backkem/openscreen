@@ -5,6 +5,7 @@
 #ifndef OSP_PUBLIC_MESSAGE_DEMUXER_H_
 #define OSP_PUBLIC_MESSAGE_DEMUXER_H_
 
+#include <functional>
 #include <map>
 #include <memory>
 #include <vector>
@@ -94,6 +95,19 @@ class MessageDemuxer {
   MessageWatch SetDefaultMessageTypeWatch(msgs::Type message_type,
                                           MessageCallback* callback);
 
+  // A gate decides whether messages of `message_type` from `instance_id` may
+  // be delivered now. Messages that are not allowed stay buffered (and so do
+  // all later messages on the same stream) until `RetryBufferedMessages` is
+  // called for the instance. Used to hold back application messages until the
+  // peer has authenticated.
+  using MessageGate =
+      std::function<bool(uint64_t instance_id, msgs::Type message_type)>;
+  void SetMessageGate(MessageGate gate);
+
+  // Retries delivering the buffered messages of `instance_id`, e.g. after the
+  // gate starts allowing them.
+  void RetryBufferedMessages(uint64_t instance_id);
+
   // Gives data from `instance_id` to the demuxer for processing.
   void OnStreamData(uint64_t instance_id,
                     uint64_t connection_id,
@@ -131,6 +145,7 @@ class MessageDemuxer {
   std::map<uint64_t, std::map<msgs::Type, raw_ptr<MessageCallback>>>
       message_callbacks_;
   std::map<msgs::Type, raw_ptr<MessageCallback>> default_callbacks_;
+  MessageGate gate_;
 
   // Map<instance_id, Map<connection_id, data_buffer>>
   std::map<uint64_t, std::map<uint64_t, std::vector<uint8_t>>> buffers_;

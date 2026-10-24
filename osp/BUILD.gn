@@ -68,5 +68,19 @@ if (!is_win) {
         "public",
       ]
     }
+
+    openscreen_executable("lp2p_demo") {
+      testonly = true
+      visibility += [ "../*" ]
+      sources = [ "demo/lp2p_demo.cc" ]
+      deps = [
+        "../platform:base",
+        "../platform:standalone_impl",
+        "../third_party/getopt",
+        "../util",
+        "impl",
+        "public",
+      ]
+    }
   }
 }

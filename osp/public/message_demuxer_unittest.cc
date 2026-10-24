@@ -422,4 +422,27 @@ TEST_F(MessageDemuxerTest, DeserializeMessages) {
   EXPECT_TRUE(kUnknownInfo.is_error());
 }
 
+TEST_F(MessageDemuxerTest, UnknownTypeKey) {
+  uint64_t unknown_instance_id = 0;
+  uint64_t unknown_type_key = 0;
+  demuxer_.SetUnknownMessageTypeCallback(
+      [&](uint64_t instance_id, uint64_t type_key) {
+        unknown_instance_id = instance_id;
+        unknown_type_key = type_key;
+      });
+
+  // Type key 1234 (two-byte varint 0x44d2) is not defined in the CDDL.
+  const std::vector<uint8_t> unknown = {0x44, 0xd2, 0xa0};
+  demuxer_.OnStreamData(endpoint_id_, connection_id_, unknown.data(),
+                        unknown.size());
+  EXPECT_EQ(endpoint_id_, unknown_instance_id);
+  EXPECT_EQ(1234u, unknown_type_key);
+
+  // A known type key without a watch does not trigger the callback.
+  unknown_type_key = 0;
+  demuxer_.OnStreamData(endpoint_id_, connection_id_ + 1, buffer_.data(),
+                        buffer_.size());
+  EXPECT_EQ(0u, unknown_type_key);
+}
+
 }  // namespace openscreen::osp

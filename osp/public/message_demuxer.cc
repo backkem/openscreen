@@ -203,6 +203,11 @@ void MessageDemuxer::SetMessageGate(MessageGate gate) {
   gate_ = std::move(gate);
 }
 
+void MessageDemuxer::SetUnknownMessageTypeCallback(
+    UnknownMessageTypeCallback callback) {
+  unknown_message_type_callback_ = std::move(callback);
+}
+
 void MessageDemuxer::RetryBufferedMessages(uint64_t instance_id) {
   auto instance_entry = buffers_.find(instance_id);
   if (instance_entry == buffers_.end()) {
@@ -265,6 +270,9 @@ MessageDemuxer::HandleStreamBufferResult MessageDemuxer::HandleStreamBufferLoop(
   HandleStreamBufferResult result;
   do {
     result = {false, 0};
+    if (DropUnknownMessageType(instance_id, buffer)) {
+      break;
+    }
     if (callbacks_entry != message_callbacks_.end()) {
       OSP_VLOG << "attempting endpoint-specific handling";
       // There are several cases for `result`:
@@ -294,6 +302,28 @@ MessageDemuxer::HandleStreamBufferResult MessageDemuxer::HandleStreamBufferLoop(
   } while (result.consumed && !buffer.empty());
 
   return result;
+}
+
+bool MessageDemuxer::DropUnknownMessageType(uint64_t instance_id,
+                                            std::vector<uint8_t>& buffer) {
+  size_t type_key_length = 0;
+  ErrorOr<msgs::Type> message_type =
+      MessageTypeDecoder::DecodeType(buffer, &type_key_length);
+  if (!message_type.is_error() ||
+      message_type.error().code() != Error::Code::kCborInvalidMessage) {
+    return false;
+  }
+  ErrorOr<uint64_t> type_key =
+      MessageTypeDecoder::DecodeVarUint(buffer, &type_key_length);
+  buffer.clear();
+  if (type_key) {
+    OSP_LOG_WARN << "Unknown type key " << type_key.value() << " from instance "
+                 << instance_id;
+    if (unknown_message_type_callback_) {
+      unknown_message_type_callback_(instance_id, type_key.value());
+    }
+  }
+  return true;
 }
 
 MessageDemuxer::HandleStreamBufferResult MessageDemuxer::HandleStreamBuffer(

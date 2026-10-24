@@ -39,6 +39,8 @@ class QuicConnectionImpl final : public QuicConnection,
   void OnPacketReceived(const UdpPacket& packet) override;
   QuicStream* MakeOutgoingStream(QuicStream::Delegate& delegate) override;
   void Close() override;
+  void CloseWithApplicationError(uint64_t error_code,
+                                 std::string_view reason) override;
 
   // quic::QuicSession::Visitor overrides
   void OnConnectionClosed(quic::QuicConnectionId server_connection_id,

@@ -65,6 +65,12 @@ class QuicConnection {
   virtual void OnPacketReceived(const UdpPacket& packet) = 0;
   virtual QuicStream* MakeOutgoingStream(QuicStream::Delegate& delegate) = 0;
   virtual void Close() = 0;
+  // Closes the connection with a CONNECTION_CLOSE frame for an application
+  // error (type 0x1d) carrying `error_code` and `reason`.
+  virtual void CloseWithApplicationError(uint64_t error_code,
+                                         std::string_view reason) {
+    Close();
+  }
 
   const std::string& instance_name() { return instance_name_; }
   uint64_t instance_id() { return instance_id_; }

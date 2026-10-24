@@ -8,6 +8,13 @@
 
 namespace openscreen::osp {
 
+namespace {
+
+// network.bs: the application error code for an unknown type key.
+constexpr uint64_t kUnknownTypeKeyErrorCode = 404;
+
+}  // namespace
+
 // static
 QuicAgentCertificate& QuicServiceBase::GetAgentCertificate() {
   static QuicAgentCertificate* const agent_certificate =
@@ -47,6 +54,25 @@ QuicServiceBase::QuicServiceBase(
   // verified through authentication, it must treat that agent as unverified
   // and initiate authentication with that agent before allowing additional
   // messages to be exchanged with that agent."
+  // network.bs: "If an agent receives a message for which it does not
+  // recognize a type key, it must close the QUIC connection with an
+  // application error code of 404 and should include the unknown type key in
+  // the reason phrase of the CONNECTION_CLOSE frame."
+  demuxer_.SetUnknownMessageTypeCallback(
+      [this](uint64_t instance_id, uint64_t type_key) {
+        task_runner_->PostTask(
+            [weak_this = weak_factory_.GetWeakPtr(), instance_id, type_key] {
+              if (!weak_this) {
+                return;
+              }
+              auto entry = weak_this->connections_.find(instance_id);
+              if (entry != weak_this->connections_.end()) {
+                entry->second.connection->CloseWithApplicationError(
+                    kUnknownTypeKeyErrorCode,
+                    "unknown type key " + std::to_string(type_key));
+              }
+            });
+      });
   demuxer_.SetMessageGate([this](uint64_t instance_id, msgs::Type type) {
     return authenticator_->config().allow_unauthenticated_messages ||
            AgentAuthenticator::IsNetworkPhaseMessage(type) ||

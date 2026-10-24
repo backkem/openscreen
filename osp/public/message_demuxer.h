@@ -104,6 +104,16 @@ class MessageDemuxer {
       std::function<bool(uint64_t instance_id, msgs::Type message_type)>;
   void SetMessageGate(MessageGate gate);
 
+  // Called when a stream from `instance_id` carries a type key that is not
+  // defined in osp_messages.cddl. The rest of the stream's buffer is dropped.
+  // network.bs: "If an agent receives a message for which it does not
+  // recognize a type key, it must close the QUIC connection with an
+  // application error code of 404". The callback must not call back into the
+  // demuxer synchronously.
+  using UnknownMessageTypeCallback =
+      std::function<void(uint64_t instance_id, uint64_t type_key)>;
+  void SetUnknownMessageTypeCallback(UnknownMessageTypeCallback callback);
+
   // Retries delivering the buffered messages of `instance_id`, e.g. after the
   // gate starts allowing them.
   void RetryBufferedMessages(uint64_t instance_id);
@@ -134,6 +144,11 @@ class MessageDemuxer {
           instance_entry,
       std::vector<uint8_t>& buffer);
 
+  // Returns true, after reporting and dropping the buffer, if `buffer` starts
+  // with a type key that is not defined in the CDDL.
+  bool DropUnknownMessageType(uint64_t instance_id,
+                              std::vector<uint8_t>& buffer);
+
   HandleStreamBufferResult HandleStreamBuffer(
       uint64_t instance_id,
       uint64_t connection_id,
@@ -146,6 +161,7 @@ class MessageDemuxer {
       message_callbacks_;
   std::map<msgs::Type, raw_ptr<MessageCallback>> default_callbacks_;
   MessageGate gate_;
+  UnknownMessageTypeCallback unknown_message_type_callback_;
 
   // Map<instance_id, Map<connection_id, data_buffer>>
   std::map<uint64_t, std::map<uint64_t, std::vector<uint8_t>>> buffers_;
@@ -155,8 +171,6 @@ class MessageTypeDecoder {
  public:
   static ErrorOr<msgs::Type> DecodeType(ByteView buffer,
                                         size_t* num_bytes_decoded);
-
- private:
   static ErrorOr<uint64_t> DecodeVarUint(ByteView buffer,
                                          size_t* num_bytes_decoded);
 };

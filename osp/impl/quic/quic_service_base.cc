@@ -30,8 +30,7 @@ QuicServiceBase::QuicServiceBase(
     ClockNowFunctionPtr now_function,
     TaskRunner& task_runner,
     size_t buffer_limit)
-    : instance_request_ids_(role),
-      demuxer_(now_function, buffer_limit),
+    : demuxer_(now_function, buffer_limit),
       connection_factory_(std::move(connection_factory)),
       connection_endpoints_(config.connection_endpoints),
       now_function_(now_function),

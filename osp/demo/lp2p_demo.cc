@@ -111,11 +111,7 @@ class Lp2pDemo final : public ProtocolConnectionServiceObserver,
       manager->GetServiceListener()->Stop();
       manager->GetProtocolConnectionClient()->Stop();
     }
-    // NetworkServiceManager::Dispose() is not called: once a QUIC
-    // connection was made it crashes in QUIC service teardown (the services
-    // close their connections again after `Stop`, and the connection factory
-    // closes connections that were already destroyed). The process exits
-    // next, so the services are left alive.
+    NetworkServiceManager::Dispose();
   }
 
   // Sends `line` on every open data channel. Lines read before the first

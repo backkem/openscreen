@@ -113,6 +113,16 @@ void AgentAuthenticator::Start(uint64_t instance_id, PeerInfo peer) {
 
   // Process messages the peer sent before the network phase started here.
   demuxer_->RetryBufferedMessages(instance_id);
+  if (states_.find(instance_id) == states_.end()) {
+    return;
+  }
+
+  if (!config_.enabled) {
+    OSP_LOG_WARN << "Authentication disabled (NON-SPEC): treating "
+                 << s.peer.peer_name << " as authenticated";
+    s.authenticated = true;
+    delegate_->OnAuthenticationSucceeded(instance_id);
+  }
 }
 
 void AgentAuthenticator::Remove(uint64_t instance_id) {
@@ -291,7 +301,7 @@ ErrorOr<std::unique_ptr<Spake2>> AgentAuthenticator::CreateSpake2(
     return Error(Error::Code::kNotImplemented,
                  "the network.bs SPAKE2 suite (edwards25519) is not "
                  "implemented; the P-256 suite is available as a non-spec "
-                 "option");
+                 "option (osp_demo: --spake2_suite=p256)");
   }
   Spake2::Options options;
   options.role = is_alice ? Spake2::Role::kA : Spake2::Role::kB;
@@ -302,17 +312,28 @@ ErrorOr<std::unique_ptr<Spake2>> AgentAuthenticator::CreateSpake2(
   const AgentFingerprint& server_fp = state.peer.local_is_server
                                           ? state.peer.local_fingerprint
                                           : state.peer.peer_fingerprint;
-  // network.bs: "The values A and B used in SPAKE2 are the agent
-  // fingerprints of the client and server, respectively."
-  options.identity_a = ToBytes(client_fp);
-  options.identity_b = ToBytes(server_fp);
-  // network.bs: "Password hash function is SHA-512."
-  options.password_hash = Spake2::PasswordHash::kSha512;
+  switch (config_.spake2_identities) {
+    case AuthenticationConfig::Spake2Identities::kClientServer:
+      options.identity_a = ToBytes(client_fp);
+      options.identity_b = ToBytes(server_fp);
+      break;
+    case AuthenticationConfig::Spake2Identities::kAliceBob:
+      options.identity_a = ToBytes(is_alice ? state.peer.local_fingerprint
+                                            : state.peer.peer_fingerprint);
+      options.identity_b = ToBytes(is_alice ? state.peer.peer_fingerprint
+                                            : state.peer.local_fingerprint);
+      break;
+  }
+  options.password_hash =
+      config_.spake2_password_hash ==
+              AuthenticationConfig::Spake2PasswordHash::kSha512
+          ? Spake2::PasswordHash::kSha512
+          : Spake2::PasswordHash::kSha256;
   return Spake2::Create(options, ToBytes(psk));
 }
 
 void AgentAuthenticator::MaybeInitiate(uint64_t instance_id, State& state) {
-  if (state.spake2 || state.failed || state.authenticated ||
+  if (!config_.enabled || state.spake2 || state.failed || state.authenticated ||
       !IsPresenter(state)) {
     return;
   }
@@ -351,7 +372,7 @@ void AgentAuthenticator::HandleHandshake(
                  << ": auth-initiation-token does not match at";
     return;
   }
-  if (state.failed || state.authenticated) {
+  if (!config_.enabled || state.failed || state.authenticated) {
     return;
   }
   OSP_LOG_INFO << "auth-spake2-handshake from " << state.peer.peer_name
@@ -430,7 +451,7 @@ void AgentAuthenticator::HandleConfirmation(
     uint64_t instance_id,
     State& state,
     const std::vector<uint8_t>& confirmation) {
-  if (state.failed || state.authenticated) {
+  if (!config_.enabled || state.failed || state.authenticated) {
     return;
   }
   OSP_LOG_INFO << "auth-spake2-confirmation from " << state.peer.peer_name

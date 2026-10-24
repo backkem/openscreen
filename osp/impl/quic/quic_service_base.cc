@@ -37,7 +37,8 @@ QuicServiceBase::QuicServiceBase(
   // and initiate authentication with that agent before allowing additional
   // messages to be exchanged with that agent."
   demuxer_.SetMessageGate([this](uint64_t instance_id, msgs::Type type) {
-    return AgentAuthenticator::IsNetworkPhaseMessage(type) ||
+    return authenticator_->config().allow_unauthenticated_messages ||
+           AgentAuthenticator::IsNetworkPhaseMessage(type) ||
            authenticator_->IsAuthenticated(instance_id);
   });
 }

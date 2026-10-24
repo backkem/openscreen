@@ -19,6 +19,24 @@ namespace openscreen::osp {
 // Options marked NON-SPEC deviate from network.bs. They exist for debugging
 // and interop experiments only and default to the spec behavior.
 struct AuthenticationConfig {
+  // Which fingerprints are used as the SPAKE2 identities A and B.
+  enum class Spake2Identities {
+    // network.bs: "The values A and B used in SPAKE2 are the agent
+    // fingerprints of the client and server, respectively."
+    kClientServer,
+    // NON-SPEC: A is the fingerprint of the agent acting as SPAKE2 Alice (the
+    // initiator) and B the one of Bob. This is what openscreen-go does.
+    kAliceBob,
+  };
+
+  // The password hash used to derive the SPAKE2 scalar w from the PSK.
+  enum class Spake2PasswordHash {
+    // network.bs: "Password hash function is SHA-512."
+    kSha512,
+    // NON-SPEC: SHA-256, as openscreen-go does.
+    kSha256,
+  };
+
   // The SPAKE2 ciphersuite.
   enum class Spake2Suite {
     // network.bs: "Elliptic curve is edwards25519. Hash function is SHA-256.
@@ -32,6 +50,16 @@ struct AuthenticationConfig {
     // uses.
     kP256,
   };
+
+  // NON-SPEC when false: skip authentication entirely and treat every peer
+  // as authenticated (the behavior before authentication was implemented).
+  bool enabled = true;
+
+  // NON-SPEC when true: deliver application messages from peers that have not
+  // completed authentication. network.bs: "it must treat that agent as
+  // unverified and initiate authentication with that agent before allowing
+  // additional messages to be exchanged with that agent."
+  bool allow_unauthenticated_messages = false;
 
   // The PSK, as a numeric string (dashes and whitespace are ignored). When
   // this agent is the PSK presenter and `psk` is empty, a random PSK is
@@ -48,6 +76,8 @@ struct AuthenticationConfig {
   uint64_t psk_min_bits_of_entropy = 20;
 
   Spake2Suite spake2_suite = Spake2Suite::kEdwards25519;
+  Spake2Identities spake2_identities = Spake2Identities::kClientServer;
+  Spake2PasswordHash spake2_password_hash = Spake2PasswordHash::kSha512;
 };
 
 // The local agent-info, sent in agent-info-response.

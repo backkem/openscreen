@@ -16,6 +16,7 @@
 #include "quiche/quic/core/quic_alarm_factory.h"
 #include "quiche/quic/core/quic_config.h"
 #include "quiche/quic/core/quic_connection.h"
+#include "quiche/quic/core/quic_constants.h"
 #include "quiche/quic/core/quic_versions.h"
 #include "util/raw_ptr.h"
 #include "util/raw_ref.h"
@@ -58,8 +59,14 @@ class QuicConnectionFactoryBase : public UdpSocket::Client {
   std::unique_ptr<quic::QuicAlarmFactory> alarm_factory_;
   quic::ParsedQuicVersionVector supported_versions_{
       quic::ParsedQuicVersion::RFCv1()};
+  // NOTE: network.bs says connection IDs "should be zero length", but quiche
+  // does not support a zero-length server connection ID: the dispatcher keeps
+  // the client's original destination connection ID while the generator issues
+  // empty NEW_CONNECTION_ID frames, which RFC 9000 forbids. Peers that switch
+  // to the new ID (e.g. quiche, quic-go) then break the connection. Use the
+  // default (non-zero) length, which the spec permits.
   quic::DeterministicConnectionIdGenerator connection_id_generator_{
-      /*expected_connection_id_length=*/0u};
+      quic::kQuicDefaultConnectionIdLength};
   quic::QuicConfig config_;
 
   std::map<IPEndpoint, OpenConnection> connections_;

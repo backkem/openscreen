@@ -20,17 +20,6 @@ namespace openscreen::osp {
 
 class Lp2pEndpoint;
 
-// Options of `Lp2pReceiver` and `Lp2pRequest`.
-struct Lp2pConfig {
-  // Options that deviate from the Local Peer-to-Peer spec, off by default.
-  // They exist for interop experiments only.
-
-  // Neither send nor wait for `data-channel-open-response`: an accepted
-  // channel is not answered, and a created channel is open as soon as its
-  // request is sent. This matches go-lp2p (openscreen-go), which does neither.
-  bool skip_data_channel_open_response = false;
-};
-
 // An authenticated Open Screen Protocol connection to a peer that data
 // channels can be opened on, as the `LP2PConnection` interface of the Local
 // Peer-to-Peer spec. Created by `Lp2pReceiver` and `Lp2pRequest`, which must
@@ -90,7 +79,6 @@ class Lp2pConnection final {
 
   // Called by `Lp2pDataChannel`.
   void RemoveChannel(uint64_t stream_id);
-  bool skip_open_response() const;
   // Destroys, and so finishes, `stream` from a fresh task: the demuxer may be
   // handling a message of the stream.
   void DestroyStreamLater(std::unique_ptr<ProtocolConnection> stream);

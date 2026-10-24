@@ -16,12 +16,10 @@ Lp2pReceiver::Delegate::~Delegate() = default;
 
 Lp2pReceiver::Lp2pReceiver(ProtocolConnectionServer& server,
                            TaskRunner& task_runner,
-                           Delegate& delegate,
-                           Lp2pConfig config)
+                           Delegate& delegate)
     : delegate_(delegate),
       endpoint_(std::make_unique<Lp2pEndpoint>(server,
                                                task_runner,
-                                               config,
                                                [this](uint64_t instance_id) {
                                                  return CreateConnection(
                                                      instance_id);

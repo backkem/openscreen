@@ -62,10 +62,6 @@ void Lp2pDataChannel::OnConnectionClosed(const ProtocolConnection& connection) {
 }
 
 void Lp2pDataChannel::OnOpenResponse(uint64_t request_id, bool success) {
-  if (state_ == State::kOpen && success && connection_->skip_open_response()) {
-    // The peer answered after all.
-    return;
-  }
   if (state_ != State::kConnecting || request_id != request_id_) {
     OSP_LOG_WARN << "unexpected data-channel-open-response for data channel "
                  << id_ << " (request-id " << request_id << ")";

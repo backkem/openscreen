@@ -34,7 +34,6 @@ class Lp2pEndpoint final : public MessageDemuxer::MessageCallback,
 
   Lp2pEndpoint(ProtocolConnectionEndpoint& endpoint,
                TaskRunner& task_runner,
-               Lp2pConfig config,
                ConnectionFactory connection_factory);
   Lp2pEndpoint(const Lp2pEndpoint&) = delete;
   Lp2pEndpoint& operator=(const Lp2pEndpoint&) = delete;
@@ -44,7 +43,6 @@ class Lp2pEndpoint final : public MessageDemuxer::MessageCallback,
 
   ProtocolConnectionEndpoint& endpoint() { return *endpoint_; }
   TaskRunner& task_runner() { return *task_runner_; }
-  const Lp2pConfig& config() const { return config_; }
 
   void OnIncomingStream(std::unique_ptr<ProtocolConnection> stream);
 
@@ -77,7 +75,6 @@ class Lp2pEndpoint final : public MessageDemuxer::MessageCallback,
 
   const raw_ref<ProtocolConnectionEndpoint> endpoint_;
   const raw_ref<TaskRunner> task_runner_;
-  const Lp2pConfig config_;
   const ConnectionFactory connection_factory_;
 
   std::map<uint64_t, raw_ptr<Lp2pConnection>> connections_;

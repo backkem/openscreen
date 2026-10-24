@@ -50,8 +50,7 @@ class Lp2pReceiver final {
 
   Lp2pReceiver(ProtocolConnectionServer& server,
                TaskRunner& task_runner,
-               Delegate& delegate,
-               Lp2pConfig config = {});
+               Delegate& delegate);
   Lp2pReceiver(const Lp2pReceiver&) = delete;
   Lp2pReceiver& operator=(const Lp2pReceiver&) = delete;
   Lp2pReceiver(Lp2pReceiver&&) noexcept = delete;

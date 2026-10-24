@@ -93,13 +93,11 @@ class Lp2pConnectionTest : public ::testing::Test {
   }
 
   // Creates the receiver and the request, and connects them.
-  void Connect(Lp2pConfig receiver_config = {},
-               Lp2pConfig request_config = {}) {
-    receiver_ = std::make_unique<Lp2pReceiver>(*quic_bridge_.GetQuicServer(),
-                                               task_runner_, receiver_delegate_,
-                                               receiver_config);
+  void Connect() {
+    receiver_ = std::make_unique<Lp2pReceiver>(
+        *quic_bridge_.GetQuicServer(), task_runner_, receiver_delegate_);
     request_ = std::make_unique<Lp2pRequest>(*quic_bridge_.GetQuicClient(),
-                                             task_runner_, request_config);
+                                             task_runner_);
     ON_CALL(quic_bridge_.mock_server_observer(), OnIncomingConnectionMock(_))
         .WillByDefault([this](std::unique_ptr<ProtocolConnection>& stream) {
           receiver_->OnIncomingStream(std::move(stream));
@@ -235,41 +233,6 @@ TEST_F(Lp2pConnectionTest, RejectedChannelCloses) {
   ASSERT_TRUE(channel);
   EXPECT_EQ(Lp2pDataChannel::State::kClosed, channel->state());
   EXPECT_FALSE(channel->Send("hello").ok());
-}
-
-TEST_F(Lp2pConnectionTest, SkipDataChannelOpenResponse) {
-  const Lp2pConfig quirk = {.skip_data_channel_open_response = true};
-  receiver_connection_delegate_.channel_delegate = &receiver_channel_;
-  ASSERT_NO_FATAL_FAILURE(Connect(quirk, quirk));
-
-  EXPECT_CALL(request_channel_, OnOpen(_));
-  std::unique_ptr<Lp2pDataChannel> channel = OpenChannel({.label = "chat"});
-  ASSERT_TRUE(channel);
-  EXPECT_EQ(Lp2pDataChannel::State::kOpen, channel->state());
-  ASSERT_EQ(1u, receiver_connection_delegate_.channels.size());
-
-  std::string received;
-  EXPECT_CALL(receiver_channel_, OnMessage(_, Lp2pDataEncoding::kString, _))
-      .WillOnce(
-          [&received](Lp2pDataChannel&, Lp2pDataEncoding, ByteView payload) {
-            received = ToString(payload);
-          });
-  EXPECT_TRUE(channel->Send("hello").ok());
-  quic_bridge_.RunTasksUntilIdle();
-  EXPECT_EQ("hello", received);
-}
-
-TEST_F(Lp2pConnectionTest, SkipDataChannelOpenResponseToleratesResponse) {
-  // The opener skips the response, the accepting side sends it anyway.
-  receiver_connection_delegate_.channel_delegate = &receiver_channel_;
-  ASSERT_NO_FATAL_FAILURE(
-      Connect({}, {.skip_data_channel_open_response = true}));
-
-  EXPECT_CALL(request_channel_, OnOpen(_)).Times(1);
-  EXPECT_CALL(request_channel_, OnClose(_)).Times(0);
-  std::unique_ptr<Lp2pDataChannel> channel = OpenChannel({.label = "chat"});
-  ASSERT_TRUE(channel);
-  EXPECT_EQ(Lp2pDataChannel::State::kOpen, channel->state());
 }
 
 TEST_F(Lp2pConnectionTest, CloseStopsChannel) {

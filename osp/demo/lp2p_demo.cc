@@ -50,7 +50,6 @@ struct DemoOptions {
   std::string protocol;
   uint16_t port = 6668;
   AuthenticationConfig auth_config;
-  Lp2pConfig lp2p_config;
 };
 
 // Prints a line for humans and test harnesses to stdout.
@@ -269,8 +268,7 @@ class Lp2pDemo final : public ProtocolConnectionServiceObserver,
         server_config, *this, task_runner, MessageDemuxer::kDefaultBufferLimit);
     publisher_config.fingerprint = server->GetAgentFingerprint();
     publisher_config.auth_token = server->GetAuthToken();
-    receiver_ = std::make_unique<Lp2pReceiver>(*server, task_runner, *this,
-                                               options_.lp2p_config);
+    receiver_ = std::make_unique<Lp2pReceiver>(*server, task_runner, *this);
 
     auto publisher =
         ServicePublisherFactory::Create(publisher_config, task_runner);
@@ -297,8 +295,7 @@ class Lp2pDemo final : public ProtocolConnectionServiceObserver,
 
     auto client = ProtocolConnectionClientFactory::Create(
         client_config, *this, task_runner, MessageDemuxer::kDefaultBufferLimit);
-    request_ = std::make_unique<Lp2pRequest>(*client, task_runner,
-                                             options_.lp2p_config);
+    request_ = std::make_unique<Lp2pRequest>(*client, task_runner);
     auto listener =
         ServiceListenerFactory::Create(listener_config, task_runner);
     // The client must learn of receivers before `OnReceiverAdded` connects.
@@ -347,9 +344,6 @@ void LogUsage(const char* argv0) {
 
     --spake2_suite=p256: Use SPAKE2 over P-256 instead of edwards25519.
 
-    --skip_data_channel_open_response: Neither send nor wait for
-        data-channel-open-response, as go-lp2p does.
-
     -v, --verbose: Enable verbose logging.
 
     -h, --help: Show this help message.
@@ -366,7 +360,6 @@ bool ParseOptions(int argc, char** argv, DemoOptions& options) {
     kPsk,
     kPskEaseOfInput,
     kSpake2Suite,
-    kSkipDataChannelOpenResponse,
   };
   const get_opt::option kOptions[] = {
       {"listen", required_argument, nullptr, kListen},
@@ -377,8 +370,6 @@ bool ParseOptions(int argc, char** argv, DemoOptions& options) {
       {"psk", required_argument, nullptr, kPsk},
       {"psk_ease_of_input", required_argument, nullptr, kPskEaseOfInput},
       {"spake2_suite", required_argument, nullptr, kSpake2Suite},
-      {"skip_data_channel_open_response", no_argument, nullptr,
-       kSkipDataChannelOpenResponse},
       {"verbose", no_argument, nullptr, 'v'},
       {"help", no_argument, nullptr, 'h'},
       {nullptr, 0, nullptr, 0}};
@@ -429,9 +420,6 @@ bool ParseOptions(int argc, char** argv, DemoOptions& options) {
         } else if (value != "edwards25519") {
           return false;
         }
-        break;
-      case kSkipDataChannelOpenResponse:
-        options.lp2p_config.skip_data_channel_open_response = true;
         break;
       case 'v':
         verbose = true;

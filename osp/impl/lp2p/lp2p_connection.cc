@@ -88,17 +88,6 @@ ErrorOr<std::unique_ptr<Lp2pDataChannel>> Lp2pConnection::CreateDataChannel(
   channel->request_id_ = request.request_id;
   channel->SetDelegate(delegate);
   channels_[channel->stream_id_] = channel.get();
-
-  if (skip_open_response()) {
-    // No response is coming; the channel is open once the caller has it.
-    endpoint_->task_runner().PostTask(
-        [weak_channel = channel->weak_factory_.GetWeakPtr()] {
-          if (weak_channel &&
-              weak_channel->state() == Lp2pDataChannel::State::kConnecting) {
-            weak_channel->SetOpen();
-          }
-        });
-  }
   return channel;
 }
 
@@ -112,9 +101,7 @@ void Lp2pConnection::OnOpenRequest(const msgs::DataChannelOpenRequest& request,
                  << " from instance " << instance_id_;
     response.result = msgs::DataChannelOpenResponse_result::kPermanentError;
   }
-  if (!skip_open_response()) {
-    stream->WriteMessage(response, &msgs::EncodeDataChannelOpenResponse);
-  }
+  stream->WriteMessage(response, &msgs::EncodeDataChannelOpenResponse);
   if (response.result != msgs::DataChannelOpenResponse_result::kSuccess) {
     DestroyStreamLater(std::move(stream));
     return;
@@ -160,10 +147,6 @@ void Lp2pConnection::OnEndpointGone() {
 
 void Lp2pConnection::RemoveChannel(uint64_t stream_id) {
   channels_.erase(stream_id);
-}
-
-bool Lp2pConnection::skip_open_response() const {
-  return endpoint_ && endpoint_->config().skip_data_channel_open_response;
 }
 
 void Lp2pConnection::DestroyStreamLater(

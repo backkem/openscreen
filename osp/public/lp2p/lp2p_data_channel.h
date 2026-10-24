@@ -15,7 +15,6 @@
 #include "platform/base/error.h"
 #include "platform/base/span.h"
 #include "util/raw_ptr.h"
-#include "util/weak_ptr.h"
 
 namespace openscreen::osp {
 
@@ -137,8 +136,6 @@ class Lp2pDataChannel final : public ProtocolConnection::Observer {
   // The request ID of the `data-channel-open-request` this side sent.
   uint64_t request_id_ = 0;
   raw_ptr<Delegate> delegate_ = nullptr;
-
-  WeakPtrFactory<Lp2pDataChannel> weak_factory_{this};
 };
 
 }  // namespace openscreen::osp

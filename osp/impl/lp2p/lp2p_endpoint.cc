@@ -38,11 +38,9 @@ ErrorOr<size_t> Decode(const uint8_t* buffer,
 
 Lp2pEndpoint::Lp2pEndpoint(ProtocolConnectionEndpoint& endpoint,
                            TaskRunner& task_runner,
-                           Lp2pConfig config,
                            ConnectionFactory connection_factory)
     : endpoint_(endpoint),
       task_runner_(task_runner),
-      config_(config),
       connection_factory_(std::move(connection_factory)) {
   MessageDemuxer& demuxer = endpoint_->GetMessageDemuxer();
   open_request_watch_ = demuxer.SetDefaultMessageTypeWatch(
@@ -158,13 +156,11 @@ ErrorOr<size_t> Lp2pEndpoint::OnOpenRequest(uint64_t instance_id,
   if (!connection) {
     OSP_LOG_WARN << "rejecting data channel " << request.channel_id
                  << " from instance " << instance_id << " without a connection";
-    if (!config_.skip_data_channel_open_response) {
-      stream->WriteMessage(
-          msgs::DataChannelOpenResponse{
-              .request_id = request.request_id,
-              .result = msgs::DataChannelOpenResponse_result::kPermanentError},
-          &msgs::EncodeDataChannelOpenResponse);
-    }
+    stream->WriteMessage(
+        msgs::DataChannelOpenResponse{
+            .request_id = request.request_id,
+            .result = msgs::DataChannelOpenResponse_result::kPermanentError},
+        &msgs::EncodeDataChannelOpenResponse);
     DestroyStreamLater(std::move(stream));
     return result;
   }

@@ -107,5 +107,5 @@ hello
 lp2p_demo: received on 0 (string): echo: hello
 ```
 
-Use `--skip_data_channel_open_response` on both sides of a session with
-go-lp2p, which neither sends nor waits for `data-channel-open-response`.
+The same commands work against go-lp2p (`openscreen-go`), which needs only the
+matching P-256 opt-in.

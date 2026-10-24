@@ -49,9 +49,7 @@ class Lp2pRequest final : public ConnectRequestCallback {
     virtual void OnError(const Error& error) = 0;
   };
 
-  Lp2pRequest(ProtocolConnectionClient& client,
-              TaskRunner& task_runner,
-              Lp2pConfig config = {});
+  Lp2pRequest(ProtocolConnectionClient& client, TaskRunner& task_runner);
   Lp2pRequest(const Lp2pRequest&) = delete;
   Lp2pRequest& operator=(const Lp2pRequest&) = delete;
   Lp2pRequest(Lp2pRequest&&) noexcept = delete;

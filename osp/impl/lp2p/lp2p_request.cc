@@ -17,15 +17,11 @@ Lp2pRequest::Delegate::Delegate() = default;
 Lp2pRequest::Delegate::~Delegate() = default;
 
 Lp2pRequest::Lp2pRequest(ProtocolConnectionClient& client,
-                         TaskRunner& task_runner,
-                         Lp2pConfig config)
+                         TaskRunner& task_runner)
     : client_(client),
       // Data channels from peers are only accepted on connections this side
       // made.
-      endpoint_(std::make_unique<Lp2pEndpoint>(client,
-                                               task_runner,
-                                               config,
-                                               nullptr)) {}
+      endpoint_(std::make_unique<Lp2pEndpoint>(client, task_runner, nullptr)) {}
 
 Lp2pRequest::~Lp2pRequest() = default;
 

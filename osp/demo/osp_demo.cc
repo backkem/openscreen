@@ -696,6 +696,24 @@ usage: )" << argv0
     --psk_ease_of_input=<0-100>: Sent in auth-capabilities (default 50). The
         agent with the lower value presents the PSK; on a tie, the server.
 
+    Options that deviate from network.bs (off by default; for debugging and
+    interop experiments only):
+
+    --spake2_suite=p256: Use RFC 9382 SPAKE2-P256-SHA256-HKDF-HMAC instead of
+        the edwards25519 suite network.bs mandates (which is not implemented,
+        so authentication fails without this flag).
+
+    --spake2_identities=alice_bob: Use the SPAKE2 initiator's (Alice's)
+        fingerprint as A instead of the client's.
+
+    --spake2_password_hash=sha256: Hash the PSK with SHA-256 instead of
+        SHA-512.
+
+    --no_auth: Skip authentication; treat every peer as authenticated.
+
+    --allow_unauthenticated: Process application messages from peers that
+        have not authenticated.
+
     -v, --verbose: Enable verbose logging.
 
     -h, --help: Show this help message.
@@ -710,6 +728,11 @@ InputArgs GetInputArgs(int argc, char** argv) {
   enum LongOnlyOption {
     kPsk = 1000,
     kPskEaseOfInput,
+    kSpake2Suite,
+    kSpake2Identities,
+    kSpake2PasswordHash,
+    kNoAuth,
+    kAllowUnauthenticated,
   };
   const get_opt::option kArgumentOptions[] = {
       {"tracing", no_argument, nullptr, 't'},
@@ -717,8 +740,14 @@ InputArgs GetInputArgs(int argc, char** argv) {
       {"help", no_argument, nullptr, 'h'},
       {"psk", required_argument, nullptr, kPsk},
       {"psk_ease_of_input", required_argument, nullptr, kPskEaseOfInput},
+      {"spake2_suite", required_argument, nullptr, kSpake2Suite},
+      {"spake2_identities", required_argument, nullptr, kSpake2Identities},
+      {"spake2_password_hash", required_argument, nullptr, kSpake2PasswordHash},
+      {"no_auth", no_argument, nullptr, kNoAuth},
+      {"allow_unauthenticated", no_argument, nullptr, kAllowUnauthenticated},
       {nullptr, 0, nullptr, 0}};
 
+  using openscreen::osp::AuthenticationConfig;
   InputArgs args;
   int ch = -1;
   while ((ch = getopt_long(argc, argv, "tvh", kArgumentOptions, nullptr)) !=
@@ -739,6 +768,36 @@ InputArgs GetInputArgs(int argc, char** argv) {
         args.auth_config.psk_ease_of_input = ease;
         break;
       }
+      case kSpake2Suite:
+        if (value == "p256") {
+          args.auth_config.spake2_suite =
+              AuthenticationConfig::Spake2Suite::kP256;
+        } else if (value != "edwards25519") {
+          args.is_invalid = true;
+        }
+        break;
+      case kSpake2Identities:
+        if (value == "alice_bob") {
+          args.auth_config.spake2_identities =
+              AuthenticationConfig::Spake2Identities::kAliceBob;
+        } else if (value != "client_server") {
+          args.is_invalid = true;
+        }
+        break;
+      case kSpake2PasswordHash:
+        if (value == "sha256") {
+          args.auth_config.spake2_password_hash =
+              AuthenticationConfig::Spake2PasswordHash::kSha256;
+        } else if (value != "sha512") {
+          args.is_invalid = true;
+        }
+        break;
+      case kNoAuth:
+        args.auth_config.enabled = false;
+        break;
+      case kAllowUnauthenticated:
+        args.auth_config.allow_unauthenticated_messages = true;
+        break;
       case '?':
         args.is_invalid = true;
         break;

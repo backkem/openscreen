@@ -5,6 +5,7 @@
 #include "osp/impl/dns_sd_publisher_client.h"
 
 #include <utility>
+#include <vector>
 
 #include "discovery/common/config.h"
 #include "discovery/dnssd/public/dns_sd_instance.h"
@@ -12,6 +13,8 @@
 #include "discovery/public/dns_sd_service_factory.h"
 #include "osp/public/osp_constants.h"
 #include "osp/public/service_info.h"
+#include "platform/base/span.h"
+#include "quiche/common/quiche_data_writer.h"
 #include "util/osp_logging.h"
 
 namespace openscreen::osp {
@@ -20,12 +23,26 @@ using State = ServicePublisher::State;
 
 namespace {
 
+// Encodes |version| as a QUIC variable-length integer (RFC 9000 section 16),
+// the encoding the spec requires for the "mv" TXT value.
+std::vector<uint8_t> EncodeMetadataVersion(uint64_t version) {
+  char buffer[8];
+  quiche::QuicheDataWriter writer(sizeof(buffer), buffer);
+  if (!writer.WriteVarInt62(version)) {
+    return {};
+  }
+  return std::vector<uint8_t>(buffer, buffer + writer.length());
+}
+
 discovery::DnsSdInstance ServiceConfigToDnsSdInstance(
     const ServicePublisher::Config& config) {
   discovery::DnsSdTxtRecord txt;
+  const std::vector<uint8_t> metadata_version =
+      EncodeMetadataVersion(config.metadata_version);
   const bool did_set_everything =
       txt.SetValue(kFingerprint, config.fingerprint).ok() &&
-      txt.SetValue(kAuthToken, config.auth_token).ok();
+      txt.SetValue(kAuthToken, config.auth_token).ok() &&
+      txt.SetValue(kMetadataValue, ByteView(metadata_version)).ok();
   OSP_CHECK(did_set_everything);
 
   return discovery::DnsSdInstance(config.instance_name, kOpenScreenServiceName,

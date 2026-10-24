@@ -15,7 +15,9 @@ bool ServiceInfo::operator==(const ServiceInfo& other) const {
   return (instance_name == other.instance_name &&
           fingerprint == other.fingerprint && auth_token == other.auth_token &&
           network_interface_index == other.network_interface_index &&
-          v4_endpoint == other.v4_endpoint && v6_endpoint == other.v6_endpoint);
+          v4_endpoint == other.v4_endpoint &&
+          v6_endpoint == other.v6_endpoint &&
+          metadata_version == other.metadata_version);
 }
 
 bool ServiceInfo::operator!=(const ServiceInfo& other) const {
@@ -26,7 +28,8 @@ bool ServiceInfo::Update(const std::string& new_fingerprint,
                          const std::string& new_auth_token,
                          NetworkInterfaceIndex new_network_interface_index,
                          const IPEndpoint& new_v4_endpoint,
-                         const IPEndpoint& new_v6_endpoint) {
+                         const IPEndpoint& new_v6_endpoint,
+                         uint64_t new_metadata_version) {
   OSP_CHECK(!new_v4_endpoint.address ||
             IPAddress::Version::kV4 == new_v4_endpoint.address.version());
   OSP_CHECK(!new_v6_endpoint.address ||
@@ -34,13 +37,15 @@ bool ServiceInfo::Update(const std::string& new_fingerprint,
   const bool changed =
       (fingerprint != new_fingerprint) || (auth_token != new_auth_token) ||
       (network_interface_index != new_network_interface_index) ||
-      (v4_endpoint != new_v4_endpoint) || (v6_endpoint != new_v6_endpoint);
+      (v4_endpoint != new_v4_endpoint) || (v6_endpoint != new_v6_endpoint) ||
+      (metadata_version != new_metadata_version);
 
   fingerprint = new_fingerprint;
   auth_token = new_auth_token;
   network_interface_index = new_network_interface_index;
   v4_endpoint = new_v4_endpoint;
   v6_endpoint = new_v6_endpoint;
+  metadata_version = new_metadata_version;
   return changed;
 }
 

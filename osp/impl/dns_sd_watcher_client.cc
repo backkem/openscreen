@@ -4,6 +4,7 @@
 
 #include "osp/impl/dns_sd_watcher_client.h"
 
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -15,6 +16,8 @@
 #include "osp/public/osp_constants.h"
 #include "platform/base/error.h"
 #include "platform/base/interface_info.h"
+#include "platform/base/span.h"
+#include "quiche/common/quiche_data_reader.h"
 #include "util/osp_logging.h"
 
 namespace openscreen::osp {
@@ -22,6 +25,18 @@ namespace openscreen::osp {
 using State = ServiceListener::State;
 
 namespace {
+
+// Decodes the "mv" TXT value, a QUIC variable-length integer (RFC 9000 section
+// 16). Returns nullopt unless |bytes| is exactly one encoded integer.
+std::optional<uint64_t> DecodeMetadataVersion(ByteView bytes) {
+  quiche::QuicheDataReader reader(reinterpret_cast<const char*>(bytes.data()),
+                                  bytes.size());
+  uint64_t version = 0;
+  if (!reader.ReadVarInt62(&version) || !reader.IsDoneReading()) {
+    return std::nullopt;
+  }
+  return version;
+}
 
 ErrorOr<ServiceInfo> DnsSdInstanceEndpointToServiceInfo(
     const discovery::DnsSdInstanceEndpoint& endpoint) {
@@ -52,6 +67,19 @@ ErrorOr<ServiceInfo> DnsSdInstanceEndpointToServiceInfo(
 
   ServiceInfo service_info{endpoint.instance_id(), std::move(fingerprint),
                            std::move(auth_token), endpoint.network_interface()};
+
+  // The "mv" key is optional, so a missing or malformed value is not an error.
+  ErrorOr<ByteView> metadata_version_bytes =
+      endpoint.txt().GetValue(kMetadataValue);
+  if (metadata_version_bytes.is_value()) {
+    std::optional<uint64_t> version =
+        DecodeMetadataVersion(metadata_version_bytes.value());
+    if (version) {
+      service_info.metadata_version = *version;
+    } else {
+      OSP_LOG_WARN << "Ignoring malformed metadata version in record.";
+    }
+  }
   for (const IPEndpoint& record : endpoint.endpoints()) {
     if (!service_info.v4_endpoint && record.address.IsV4()) {
       service_info.v4_endpoint = record;

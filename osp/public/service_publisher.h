@@ -64,6 +64,13 @@ class ServicePublisher final {
     // configured in the ProtocolConnectionServer.
     uint16_t connection_server_port = 0;
 
+    // The metadata version, published in the "mv" TXT record. Per the spec
+    // (https://w3c.github.io/openscreenprotocol/network.html#discovery): "An
+    // unsigned integer value that indicates that metadata has changed. The
+    // advertising agent must update it to a greater value." It is encoded as a
+    // QUIC variable-length integer, so it must be below 2^62.
+    uint64_t metadata_version = 1;
+
     // A list of network interfaces that the publisher should use.
     // By default, all enabled Ethernet and WiFi interfaces are used.
     // This configuration must be identical to the interfaces configured

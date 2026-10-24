@@ -29,7 +29,7 @@ uint64_t QuicStreamImpl::GetStreamId() {
 // This is no-op if we try to write data on a read only stream.
 void QuicStreamImpl::Write(ByteView bytes) {
   TRACE_SCOPED(TraceCategory::kQuic, "QuicStreamImpl::Write");
-  if (write_side_closed()) {
+  if (write_side_closed() || fin_buffered()) {
     return;
   }
 
@@ -41,7 +41,13 @@ void QuicStreamImpl::Write(ByteView bytes) {
 
 void QuicStreamImpl::Close() {
   TRACE_SCOPED(TraceCategory::kQuic, "QuicStreamImpl::Close");
-  if (!write_side_closed() || !read_side_closed()) {
+  if (!write_side_closed()) {
+    // Finish the stream, so that the data written so far is still delivered.
+    // Resetting it would let the peer discard data it has not read yet.
+    if (!fin_buffered()) {
+      WriteOrBufferData(std::string_view(), /*fin=*/true, nullptr);
+    }
+  } else if (!read_side_closed()) {
     Reset(quic::QUIC_STREAM_CANCELLED);
   }
 }

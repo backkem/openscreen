@@ -51,6 +51,8 @@ class QuicStreamManager final : public QuicStream::Delegate {
 
   std::unique_ptr<QuicProtocolConnection> OnIncomingStream(QuicStream* stream);
   void AddStream(QuicProtocolConnection& protocol_connection);
+  // Called when `protocol_connection` is destroyed before its stream closed.
+  void RemoveStream(QuicProtocolConnection& protocol_connection);
 
   void set_quic_connection(QuicConnection* quic_connection) {
     quic_connection_ = quic_connection;

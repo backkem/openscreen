@@ -63,13 +63,16 @@ std::vector<std::string_view>::const_iterator OpenScreenSessionBase::SelectAlpn(
 }
 
 QuicStream* OpenScreenSessionBase::CreateOutgoingStream(
-    QuicStream::Delegate& delegate) {
+    QuicStream::Delegate& delegate,
+    bool bidirectional) {
   OSP_CHECK(connection()->connected());
   OSP_CHECK(IsEncryptionEstablished());
 
   auto stream = std::make_unique<QuicStreamImpl>(
-      delegate, GetNextOutgoingUnidirectionalStreamId(), this,
-      quic::WRITE_UNIDIRECTIONAL);
+      delegate,
+      bidirectional ? GetNextOutgoingBidirectionalStreamId()
+                    : GetNextOutgoingUnidirectionalStreamId(),
+      this, bidirectional ? quic::BIDIRECTIONAL : quic::WRITE_UNIDIRECTIONAL);
   QuicStreamImpl* stream_ptr = stream.get();
   ActivateStream(std::move(stream));
   return stream_ptr;

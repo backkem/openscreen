@@ -68,11 +68,14 @@ class FakeQuicConnection final : public QuicConnection {
   // QuicConnection overrides.
   void OnPacketReceived(const UdpPacket& packet) override;
   QuicStream* MakeOutgoingStream(QuicStream::Delegate& delegate) override;
+  QuicStream* MakeOutgoingBidirectionalStream(
+      QuicStream::Delegate& delegate) override;
   void Close() override;
 
  private:
   const raw_ref<FakeQuicConnectionFactoryBridge> parent_factory_;
   uint64_t next_stream_id_ = 1;
+  bool is_closed_ = false;
   std::map<uint64_t, std::unique_ptr<FakeQuicStream>> streams_;
 };
 

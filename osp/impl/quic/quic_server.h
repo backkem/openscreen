@@ -55,6 +55,8 @@ class QuicServer final : public ProtocolConnectionServer,
   }
   std::unique_ptr<ProtocolConnection> CreateProtocolConnection(
       uint64_t instance_id) override;
+  std::unique_ptr<ProtocolConnection> CreateBidirectionalProtocolConnection(
+      uint64_t instance_id) override;
   std::string GetAgentFingerprint() override;
   std::string GetAuthToken() override { return auth_token_; }
 

@@ -18,6 +18,7 @@ if (!is_win) {
     visibility += [ "..:openscreen_unittests_all" ]
     public = []
     sources = [
+      "impl/lp2p/lp2p_connection_unittest.cc",
       "impl/presentation/presentation_connection_unittest.cc",
       "impl/presentation/presentation_controller_unittest.cc",
       "impl/presentation/presentation_receiver_unittest.cc",
@@ -62,6 +63,20 @@ if (!is_win) {
         "../third_party/getopt",
         "../third_party/quiche",
         "../third_party/tinycbor",
+        "../util",
+        "impl",
+        "public",
+      ]
+    }
+
+    openscreen_executable("lp2p_demo") {
+      testonly = true
+      visibility += [ "../*" ]
+      sources = [ "demo/lp2p_demo.cc" ]
+      deps = [
+        "../platform:base",
+        "../platform:standalone_impl",
+        "../third_party/getopt",
         "../util",
         "impl",
         "public",

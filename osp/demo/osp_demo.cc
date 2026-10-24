@@ -482,7 +482,9 @@ void RunControllerPollLoop(std::shared_ptr<Controller> controller) {
     });
   }
 
-  state->watch.Reset();
+  // `state` refers to the controller and to QUIC streams, so it has to be
+  // destroyed on the task runner, before the controller.
+  task_runner.PostTask([state = std::move(state)]() mutable { state.reset(); });
 }
 
 void ListenerDemo(const AuthenticationConfig& auth_config) {
@@ -533,10 +535,10 @@ void ListenerDemo(const AuthenticationConfig& auth_config) {
 
   RunControllerPollLoop(controller);
 
-  controller.reset();
   std::promise<void> done_promise;
   std::future<void> done_future = done_promise.get_future();
-  task_runner.PostTask([network_service, &done_promise] {
+  task_runner.PostTask([network_service, &controller, &done_promise] {
+    controller.reset();
     network_service->GetServiceListener()->Stop();
     network_service->GetProtocolConnectionClient()->Stop();
     NetworkServiceManager::Dispose();
@@ -653,13 +655,14 @@ void PublisherDemo(std::string_view friendly_name,
 
   RunReceiverPollLoop(network_service, state);
 
-  state->receiver_delegate.connection().reset();
-  receiver->SetReceiverDelegate(nullptr);
-  receiver->Deinit();
-
   std::promise<void> done_promise;
   std::future<void> done_future = done_promise.get_future();
-  task_runner.PostTask([network_service, &done_promise] {
+  task_runner.PostTask([network_service, &receiver, &state, &done_promise] {
+    state->receiver_delegate.connection().reset();
+    receiver->SetReceiverDelegate(nullptr);
+    receiver->Deinit();
+    state.reset();
+    receiver.reset();
     network_service->GetServicePublisher()->Stop();
     network_service->GetProtocolConnectionServer()->Stop();
     NetworkServiceManager::Dispose();

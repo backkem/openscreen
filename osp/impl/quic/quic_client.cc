@@ -51,7 +51,12 @@ bool QuicClient::Resume() {
 
 std::unique_ptr<ProtocolConnection> QuicClient::CreateProtocolConnection(
     uint64_t instance_id) {
-  return CreateProtocolConnectionImpl(instance_id);
+  return CreateProtocolConnectionImpl(instance_id, /*bidirectional=*/false);
+}
+
+std::unique_ptr<ProtocolConnection>
+QuicClient::CreateBidirectionalProtocolConnection(uint64_t instance_id) {
+  return CreateProtocolConnectionImpl(instance_id, /*bidirectional=*/true);
 }
 
 bool QuicClient::Connect(std::string_view instance_name,

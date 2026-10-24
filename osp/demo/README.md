@@ -90,3 +90,22 @@ $ python3 osp/demo/osp_demo_smoke_test.py [path/to/osp_demo]
 ```
 If omitted, the test defaults to `./out/Default/osp_demo`.
 
+
+## lp2p_demo (experimental)
+
+`lp2p_demo` exercises the data channel extension of the
+[Local Peer-to-Peer API](https://wicg.github.io/local-peer-to-peer/) on top of
+OSP, with `Lp2pReceiver`/`Lp2pRequest` from `osp/public/lp2p/`. One side
+advertises and echoes text messages; the other discovers it, opens a data
+channel and sends the lines it reads from stdin. Run each side in a directory
+that contains `osp/impl/quic/certificates/`:
+
+``` bash
+$ out/Default/lp2p_demo --spake2_suite=p256 --psk=123456 --listen=MyPeer
+$ out/Default/lp2p_demo --spake2_suite=p256 --psk=123456 --connect=MyPeer
+hello
+lp2p_demo: received on 0 (string): echo: hello
+```
+
+The same commands work against go-lp2p (`openscreen-go`), which needs only the
+matching P-256 opt-in.

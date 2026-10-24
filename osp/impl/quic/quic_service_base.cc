@@ -81,6 +81,16 @@ QuicServiceBase::QuicServiceBase(
 
 QuicServiceBase::~QuicServiceBase() {
   CloseAllConnections();
+
+  // The scheduled Cleanup() calls will not run anymore, so tell
+  // `connection_factory_` that the connections are gone before they are
+  // destroyed, as it holds pointers to them.
+  for (auto& [instance_name, pending_data] : pending_connections_) {
+    connection_factory_->OnConnectionClosed(pending_data.data.connection.get());
+  }
+  for (auto& [instance_id, data] : connections_) {
+    connection_factory_->OnConnectionClosed(data.connection.get());
+  }
 }
 
 uint64_t QuicServiceBase::OnCryptoHandshakeComplete(
@@ -134,7 +144,7 @@ void QuicServiceBase::StartNetworkPhase(std::string instance_name,
 
 std::unique_ptr<ProtocolConnection>
 QuicServiceBase::CreateNetworkProtocolConnection(uint64_t instance_id) {
-  return CreateProtocolConnectionImpl(instance_id);
+  return CreateProtocolConnectionImpl(instance_id, /*bidirectional=*/false);
 }
 
 void QuicServiceBase::OnAuthenticationSucceeded(uint64_t instance_id) {
@@ -341,7 +351,8 @@ bool QuicServiceBase::ResumeImpl() {
 }
 
 std::unique_ptr<ProtocolConnection>
-QuicServiceBase::CreateProtocolConnectionImpl(uint64_t instance_id) {
+QuicServiceBase::CreateProtocolConnectionImpl(uint64_t instance_id,
+                                              bool bidirectional) {
   if (state_ != ProtocolConnectionEndpoint::State::kRunning) {
     return nullptr;
   }
@@ -353,7 +364,7 @@ QuicServiceBase::CreateProtocolConnectionImpl(uint64_t instance_id) {
 
   return QuicProtocolConnection::FromExisting(
       *connection_entry->second.connection,
-      *connection_entry->second.stream_manager, instance_id);
+      *connection_entry->second.stream_manager, instance_id, bidirectional);
 }
 
 void QuicServiceBase::CloseAllConnections() {

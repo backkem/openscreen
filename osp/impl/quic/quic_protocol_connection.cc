@@ -17,9 +17,15 @@ namespace openscreen::osp {
 std::unique_ptr<QuicProtocolConnection> QuicProtocolConnection::FromExisting(
     QuicConnection& connection,
     QuicStreamManager& manager,
-    uint64_t instance_id) {
+    uint64_t instance_id,
+    bool bidirectional) {
   OSP_VLOG << "QUIC stream created for instance " << instance_id;
-  QuicStream* stream = connection.MakeOutgoingStream(manager);
+  QuicStream* stream = bidirectional
+                           ? connection.MakeOutgoingBidirectionalStream(manager)
+                           : connection.MakeOutgoingStream(manager);
+  if (!stream) {
+    return nullptr;
+  }
   auto pc = std::make_unique<QuicProtocolConnection>(stream, instance_id);
   manager.AddStream(*pc);
   return pc;

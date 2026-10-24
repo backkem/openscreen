@@ -61,7 +61,8 @@ class OpenScreenSessionBase : public quic::QuicSession {
   std::vector<std::string_view>::const_iterator SelectAlpn(
       const std::vector<std::string_view>& alpns) const override;
 
-  QuicStream* CreateOutgoingStream(QuicStream::Delegate& delegate);
+  QuicStream* CreateOutgoingStream(QuicStream::Delegate& delegate,
+                                   bool bidirectional);
   Visitor& visitor() { return *visitor_; }
 
  protected:

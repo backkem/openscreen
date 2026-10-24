@@ -67,6 +67,13 @@ class ProtocolConnectionEndpoint {
   // connections to that instance).
   virtual std::unique_ptr<ProtocolConnection> CreateProtocolConnection(
       uint64_t instance_id) = 0;
+
+  // Like `CreateProtocolConnection`, but the QUIC stream is bidirectional, so
+  // the peer can reply on it. network.bs sends messages on unidirectional
+  // streams; protocol extensions such as the Local Peer-to-Peer data channels
+  // exchange messages in both directions on one stream.
+  virtual std::unique_ptr<ProtocolConnection>
+  CreateBidirectionalProtocolConnection(uint64_t instance_id) = 0;
 };
 
 std::ostream& operator<<(std::ostream& os,

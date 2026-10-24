@@ -297,4 +297,80 @@ TEST(RemotePlaybackMessagesTest, DecodeRemotePlaybackStateEvent) {
   EXPECT_EQ(42, *event.state.epoch);
 }
 
+// The Local Peer-to-Peer data channel extension messages, with the bytes the
+// Go implementation (go-lp2p) encodes them as.
+TEST(Lp2pMessagesTest, DataChannelOpenRequest) {
+  const uint8_t kRequest[] = {
+      0xa4,                            // map(4)
+      0x00, 0x01,                      // request-id: 1
+      0x01, 0x02,                      // channel-id: 2
+      0x02, 0x64, 'c', 'h', 'a', 't',  // label: "chat"
+      0x03, 0x60,                      // protocol: ""
+  };
+  uint8_t buffer[64];
+  const msgs::DataChannelOpenRequest request = {
+      .request_id = 1, .channel_id = 2, .label = "chat", .protocol = ""};
+  const int64_t bytes_out =
+      msgs::EncodeDataChannelOpenRequest(request, buffer, sizeof(buffer));
+  ASSERT_EQ(static_cast<int64_t>(sizeof(kRequest)), bytes_out);
+  EXPECT_EQ(0, memcmp(kRequest, buffer, sizeof(kRequest)));
+
+  msgs::DataChannelOpenRequest decoded;
+  ASSERT_EQ(
+      static_cast<int64_t>(sizeof(kRequest)),
+      msgs::DecodeDataChannelOpenRequest(kRequest, sizeof(kRequest), decoded));
+  EXPECT_EQ(request, decoded);
+}
+
+TEST(Lp2pMessagesTest, DataChannelOpenResponse) {
+  const uint8_t kResponse[] = {
+      0xa2,        // map(2)
+      0x00, 0x01,  // request-id: 1
+      0x01, 0x01,  // result: success
+  };
+  uint8_t buffer[16];
+  const msgs::DataChannelOpenResponse response = {
+      .request_id = 1,
+      .result = msgs::DataChannelOpenResponse_result::kSuccess};
+  const int64_t bytes_out =
+      msgs::EncodeDataChannelOpenResponse(response, buffer, sizeof(buffer));
+  ASSERT_EQ(static_cast<int64_t>(sizeof(kResponse)), bytes_out);
+  EXPECT_EQ(0, memcmp(kResponse, buffer, sizeof(kResponse)));
+
+  msgs::DataChannelOpenResponse decoded;
+  ASSERT_EQ(static_cast<int64_t>(sizeof(kResponse)),
+            msgs::DecodeDataChannelOpenResponse(kResponse, sizeof(kResponse),
+                                                decoded));
+  EXPECT_EQ(response, decoded);
+}
+
+TEST(Lp2pMessagesTest, DataFrame) {
+  const uint8_t kFrame[] = {
+      0xa2,                  // map(2)
+      0x00, 0x01,            // encoding-id: string
+      0x04, 0x42, 'h', 'i',  // payload: h'6869'
+  };
+  uint8_t buffer[16];
+  msgs::DataFrame frame;
+  frame.encoding_id = 1;
+  frame.payload = {'h', 'i'};
+  const int64_t bytes_out =
+      msgs::EncodeDataFrame(frame, buffer, sizeof(buffer));
+  ASSERT_EQ(static_cast<int64_t>(sizeof(kFrame)), bytes_out);
+  EXPECT_EQ(0, memcmp(kFrame, buffer, sizeof(kFrame)));
+
+  msgs::DataFrame decoded;
+  ASSERT_EQ(static_cast<int64_t>(sizeof(kFrame)),
+            msgs::DecodeDataFrame(kFrame, sizeof(kFrame), decoded));
+  EXPECT_EQ(frame, decoded);
+}
+
+TEST(Lp2pMessagesTest, AgentCapabilities) {
+  EXPECT_EQ(1100u, static_cast<uint64_t>(msgs::AgentCapability::kDataChannels));
+  EXPECT_EQ(1200u,
+            static_cast<uint64_t>(msgs::AgentCapability::kQuickTransport));
+  EXPECT_EQ(1101u, static_cast<uint64_t>(msgs::Type::kDataChannelOpenRequest));
+  EXPECT_EQ(1102u, static_cast<uint64_t>(msgs::Type::kDataChannelOpenResponse));
+}
+
 }  // namespace openscreen::osp

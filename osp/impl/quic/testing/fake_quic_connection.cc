@@ -70,6 +70,9 @@ void FakeQuicConnection::OnPacketReceived(const UdpPacket& packet) {
 
 QuicStream* FakeQuicConnection::MakeOutgoingStream(
     QuicStream::Delegate& delegate) {
+  if (is_closed_) {
+    return nullptr;
+  }
   auto result = std::make_unique<FakeQuicStream>(delegate, next_stream_id_++);
   auto* stream_ptr = result.get();
   streams_.emplace(result->GetStreamId(), std::move(result));
@@ -84,6 +87,10 @@ QuicStream* FakeQuicConnection::MakeOutgoingBidirectionalStream(
 }
 
 void FakeQuicConnection::Close() {
+  if (is_closed_) {
+    return;
+  }
+  is_closed_ = true;
   delegate().OnConnectionClosed(instance_name_);
   for (auto& stream : streams_) {
     stream.second->Close();

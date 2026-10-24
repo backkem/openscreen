@@ -81,6 +81,16 @@ QuicServiceBase::QuicServiceBase(
 
 QuicServiceBase::~QuicServiceBase() {
   CloseAllConnections();
+
+  // The scheduled Cleanup() calls will not run anymore, so tell
+  // `connection_factory_` that the connections are gone before they are
+  // destroyed, as it holds pointers to them.
+  for (auto& [instance_name, pending_data] : pending_connections_) {
+    connection_factory_->OnConnectionClosed(pending_data.data.connection.get());
+  }
+  for (auto& [instance_id, data] : connections_) {
+    connection_factory_->OnConnectionClosed(data.connection.get());
+  }
 }
 
 uint64_t QuicServiceBase::OnCryptoHandshakeComplete(

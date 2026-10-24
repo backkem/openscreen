@@ -69,6 +69,8 @@ class QuicConnectionFactoryBase : public UdpSocket::Client {
       quic::kQuicDefaultConnectionIdLength};
   quic::QuicConfig config_;
 
+  // The connections are owned by the QuicServiceBase that created this factory,
+  // which reports each one through OnConnectionClosed() before destroying it.
   std::map<IPEndpoint, OpenConnection> connections_;
 
   const raw_ref<TaskRunner> task_runner_;

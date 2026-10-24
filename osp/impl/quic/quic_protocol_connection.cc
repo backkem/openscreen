@@ -23,6 +23,9 @@ std::unique_ptr<QuicProtocolConnection> QuicProtocolConnection::FromExisting(
   QuicStream* stream = bidirectional
                            ? connection.MakeOutgoingBidirectionalStream(manager)
                            : connection.MakeOutgoingStream(manager);
+  if (!stream) {
+    return nullptr;
+  }
   auto pc = std::make_unique<QuicProtocolConnection>(stream, instance_id);
   manager.AddStream(*pc);
   return pc;

@@ -63,9 +63,12 @@ class QuicConnection {
   virtual ~QuicConnection() = default;
 
   virtual void OnPacketReceived(const UdpPacket& packet) = 0;
+  // These return nullptr if the connection is closed.
   virtual QuicStream* MakeOutgoingStream(QuicStream::Delegate& delegate) = 0;
   virtual QuicStream* MakeOutgoingBidirectionalStream(
       QuicStream::Delegate& delegate) = 0;
+  // Closes the connection. Does nothing if it is already closed, whether by
+  // a previous call or by the peer.
   virtual void Close() = 0;
   // Closes the connection with a CONNECTION_CLOSE frame for an application
   // error (type 0x1d) carrying `error_code` and `reason`.

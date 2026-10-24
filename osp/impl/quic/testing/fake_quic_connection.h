@@ -75,6 +75,7 @@ class FakeQuicConnection final : public QuicConnection {
  private:
   const raw_ref<FakeQuicConnectionFactoryBridge> parent_factory_;
   uint64_t next_stream_id_ = 1;
+  bool is_closed_ = false;
   std::map<uint64_t, std::unique_ptr<FakeQuicStream>> streams_;
 };
 

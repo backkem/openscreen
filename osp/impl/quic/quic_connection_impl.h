@@ -90,6 +90,10 @@ class QuicConnectionImpl final : public QuicConnection,
   // On QuicServer side, `owns_session_` is false and `session_` is owned by
   // QuicDispatcherImpl.
   bool owns_session_ = false;
+  // Set once the session reports that the connection is closed. On the
+  // QuicServer side, the session may be destroyed by its dispatcher after
+  // that, so `session_` must not be used anymore.
+  bool closed_ = false;
 };
 
 }  // namespace openscreen::osp

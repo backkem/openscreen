@@ -9,9 +9,11 @@
 #include <string>
 #include <vector>
 
+#include "osp/impl/quic/certificates/agent_fingerprint_proof_verifier.h"
 #include "osp/impl/quic/quic_connection_factory_base.h"
 #include "platform/base/error.h"
 #include "quiche/quic/core/crypto/quic_crypto_client_config.h"
+#include "util/raw_ptr.h"
 
 namespace openscreen::osp {
 
@@ -46,6 +48,8 @@ class QuicConnectionFactoryClient : public QuicConnectionFactoryBase {
  private:
   std::vector<std::unique_ptr<UdpSocket>> sockets_;
   std::unique_ptr<quic::QuicCryptoClientConfig> crypto_client_config_;
+  // Owned by `crypto_client_config_`.
+  raw_ptr<AgentFingerprintProofVerifier> proof_verifier_ = nullptr;
 };
 
 }  // namespace openscreen::osp

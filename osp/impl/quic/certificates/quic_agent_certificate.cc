@@ -10,6 +10,7 @@
 #include "openssl/bio.h"
 #include "openssl/evp.h"
 #include "openssl/nid.h"
+#include "openssl/x509.h"
 #include "quiche/quic/core/crypto/proof_source_x509.h"
 #include "quiche/quic/core/quic_utils.h"
 #include "util/base64.h"
@@ -68,6 +69,25 @@ QuicAgentCertificate::QuicAgentCertificate() {
 
 QuicAgentCertificate::~QuicAgentCertificate() = default;
 
+// static
+AgentFingerprint QuicAgentCertificate::ComputeAgentFingerprint(
+    std::string_view der_cert) {
+  const uint8_t* data = reinterpret_cast<const uint8_t*>(der_cert.data());
+  bssl::UniquePtr<X509> cert(d2i_X509(nullptr, &data, der_cert.size()));
+  if (!cert) {
+    return {};
+  }
+  uint8_t* spki = nullptr;
+  const int spki_length =
+      i2d_X509_PUBKEY(X509_get_X509_PUBKEY(cert.get()), &spki);
+  if (spki_length <= 0) {
+    return {};
+  }
+  bssl::UniquePtr<uint8_t> spki_owner(spki);
+  return base64::Encode(quic::RawSha256(std::string_view(
+      reinterpret_cast<const char*>(spki), static_cast<size_t>(spki_length))));
+}
+
 bool QuicAgentCertificate::LoadAgentCertificate(std::string_view filename) {
   certificates_.clear();
   agent_fingerprint_.clear();
@@ -77,7 +97,7 @@ bool QuicAgentCertificate::LoadAgentCertificate(std::string_view filename) {
   // agent certificate once all the issues are closed.
   certificates_ = ReadCertificatesFromPemFile(filename);
   if (!certificates_.empty()) {
-    agent_fingerprint_ = base64::Encode(quic::RawSha256(certificates_[0]));
+    agent_fingerprint_ = ComputeAgentFingerprint(certificates_[0]);
     return !agent_fingerprint_.empty();
   } else {
     return false;

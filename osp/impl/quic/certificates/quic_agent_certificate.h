@@ -25,6 +25,12 @@ class QuicAgentCertificate final : public AgentCertificate {
   QuicAgentCertificate& operator=(QuicAgentCertificate&&) noexcept = delete;
   ~QuicAgentCertificate() override;
 
+  // Computes the agent fingerprint of a DER-encoded agent certificate, as
+  // defined by network.bs "Computing the Agent Fingerprint": the base64
+  // encoding of the RFC 7469 SPKI fingerprint (SHA-256 over the DER-encoded
+  // SubjectPublicKeyInfo). Returns an empty string on failure.
+  static AgentFingerprint ComputeAgentFingerprint(std::string_view der_cert);
+
   // AgentCertificate overrides.
   bool LoadAgentCertificate(std::string_view filename) override;
   bool LoadPrivateKey(std::string_view filename) override;

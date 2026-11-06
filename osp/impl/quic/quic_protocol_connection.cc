@@ -20,6 +20,9 @@ std::unique_ptr<QuicProtocolConnection> QuicProtocolConnection::FromExisting(
     uint64_t instance_id) {
   OSP_VLOG << "QUIC stream created for instance " << instance_id;
   QuicStream* stream = connection.MakeOutgoingStream(manager);
+  if (!stream) {
+    return nullptr;
+  }
   auto pc = std::make_unique<QuicProtocolConnection>(stream, instance_id);
   manager.AddStream(*pc);
   return pc;

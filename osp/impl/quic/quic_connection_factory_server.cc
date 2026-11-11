@@ -34,6 +34,9 @@ QuicConnectionFactoryServer::~QuicConnectionFactoryServer() = default;
 
 void QuicConnectionFactoryServer::Shutdown() {
   server_delegate_ = nullptr;
+  // The sockets referenced by `connections_` are destroyed with
+  // `dispatchers_`, so forget the connections too.
+  connections_.clear();
   dispatchers_.clear();
   crypto_server_config_.reset();
 }

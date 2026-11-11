@@ -63,7 +63,10 @@ class QuicConnection {
   virtual ~QuicConnection() = default;
 
   virtual void OnPacketReceived(const UdpPacket& packet) = 0;
+  // Returns nullptr if the connection is closed.
   virtual QuicStream* MakeOutgoingStream(QuicStream::Delegate& delegate) = 0;
+  // Closes the connection. Does nothing if it is already closed, whether by
+  // a previous call or by the peer.
   virtual void Close() = 0;
 
   const std::string& instance_name() { return instance_name_; }

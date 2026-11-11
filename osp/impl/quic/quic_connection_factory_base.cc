@@ -19,11 +19,7 @@ QuicConnectionFactoryBase::QuicConnectionFactoryBase(TaskRunner& task_runner)
       task_runner, quic::QuicDefaultClock::Get());
 }
 
-QuicConnectionFactoryBase::~QuicConnectionFactoryBase() {
-  for (auto& it : connections_) {
-    it.second.connection->Close();
-  }
-}
+QuicConnectionFactoryBase::~QuicConnectionFactoryBase() = default;
 
 void QuicConnectionFactoryBase::OnError(UdpSocket* socket, const Error& error) {
   // Close all related connections and the UpdSocket will be closed because none

@@ -151,6 +151,31 @@ TEST_F(QuicClientTest, Connect) {
   client_->Stop();
 }
 
+// Regression test: stopping both services and then destroying them right away,
+// as NetworkServiceManager::Dispose() does at shutdown, must not leave the
+// connection factory holding pointers to destroyed connections.
+TEST_F(QuicClientTest, StopThenDispose) {
+  client_->Start();
+
+  ConnectCallback connection_callback;
+  ConnectRequest request;
+  ASSERT_TRUE(client_->Connect(quic_bridge_.kInstanceName, request,
+                               &connection_callback));
+  quic_bridge_.RunTasksUntilIdle();
+  ASSERT_TRUE(connection_callback.instance_id());
+
+  std::unique_ptr<ProtocolConnection> connection =
+      client_->CreateProtocolConnection(connection_callback.instance_id());
+  ASSERT_TRUE(connection);
+  SendTestMessage(connection.get());
+
+  EXPECT_TRUE(client_->Stop());
+  EXPECT_TRUE(quic_bridge_.GetQuicServer()->Stop());
+
+  // The fixture destroys the services (NetworkServiceManager::Dispose()) with
+  // no tasks run in between, i.e. before the deferred connection cleanup.
+}
+
 TEST_F(QuicClientTest, DoubleConnect) {
   client_->Start();
 

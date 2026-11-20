@@ -40,12 +40,18 @@ QuicStream* QuicConnectionImpl::MakeOutgoingStream(
     QuicStream::Delegate& delegate) {
   TRACE_SCOPED(TraceCategory::kQuic, "QuicConnectionImpl::MakeOutgoingStream");
   OSP_CHECK(session_);
+  if (closed_) {
+    return nullptr;
+  }
 
   return session_->CreateOutgoingStream(delegate);
 }
 
 void QuicConnectionImpl::Close() {
   TRACE_SCOPED(TraceCategory::kQuic, "QuicConnectionImpl::Close");
+  if (closed_) {
+    return;
+  }
   session_->connection()->CloseConnection(
       quic::QUIC_PEER_GOING_AWAY, "session torn down",
       quic::ConnectionCloseBehavior::SEND_CONNECTION_CLOSE_PACKET);
@@ -57,6 +63,7 @@ void QuicConnectionImpl::OnConnectionClosed(
     const std::string& error_details,
     quic::ConnectionCloseSource source) {
   TRACE_SCOPED(TraceCategory::kQuic, "QuicConnectionImpl::OnConnectionClosed");
+  closed_ = true;
   delegate_->OnConnectionClosed(instance_name_);
   if (dispatcher_) {
     dispatcher_->OnConnectionClosed(server_connection_id, error_code,

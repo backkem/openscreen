@@ -5,6 +5,7 @@
 #include "osp/impl/quic/testing/fake_quic_connection_factory.h"
 
 #include <algorithm>
+#include <map>
 #include <memory>
 #include <utility>
 
@@ -144,7 +145,11 @@ FakeClientQuicConnectionFactory::FakeClientQuicConnectionFactory(
     FakeQuicConnectionFactoryBridge* bridge)
     : QuicConnectionFactoryClient(task_runner), bridge_(bridge) {}
 
-FakeClientQuicConnectionFactory::~FakeClientQuicConnectionFactory() = default;
+FakeClientQuicConnectionFactory::~FakeClientQuicConnectionFactory() {
+  // The connections are owned by the QuicClient, which must report them closed
+  // before destroying them.
+  OSP_CHECK(connections_.empty());
+}
 
 ErrorOr<std::unique_ptr<QuicConnection>>
 FakeClientQuicConnectionFactory::Connect(
@@ -152,14 +157,24 @@ FakeClientQuicConnectionFactory::Connect(
     const IPEndpoint& remote_endpoint,
     const ConnectData& connect_data,
     QuicConnection::Delegate* connection_delegate) {
-  return bridge_->Connect(local_endpoint, remote_endpoint,
-                          connect_data.instance_name, connection_delegate);
+  ErrorOr<std::unique_ptr<QuicConnection>> result =
+      bridge_->Connect(local_endpoint, remote_endpoint,
+                       connect_data.instance_name, connection_delegate);
+  // Like QuicConnectionFactoryClient, keep a non-owning reference to the
+  // connection until the owner reports it closed via OnConnectionClosed().
+  if (result) {
+    connections_.emplace(remote_endpoint,
+                         OpenConnection{result.value().get(), socket_.get()});
+  }
+  return result;
 }
 
-// No need to deal with this, because we don't maintain QuicConnection list
-// in test.
 void FakeClientQuicConnectionFactory::OnConnectionClosed(
-    QuicConnection* connection) {}
+    QuicConnection* connection) {
+  std::erase_if(connections_, [connection](const auto& entry) {
+    return entry.second.connection == connection;
+  });
+}
 
 void FakeClientQuicConnectionFactory::OnError(UdpSocket* socket,
                                               const Error& error) {
